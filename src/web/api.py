@@ -11,6 +11,9 @@ from pathlib import Path
 from src.db.database import Database
 from src.ai.llm import LLM
 from src.scanner.engine import ScanEngine, SCAN_PROFILES
+from src.scanner.scheduler import ScanScheduler
+from src.scanner.diff import compare_scans
+from src.scanner.export import export_json, export_html
 from src.web.auth import AuthMiddleware
 from src.config import SENTINEL_PORT
 from src.utils.logger import get_logger
@@ -20,6 +23,7 @@ log = get_logger("api")
 db = Database()
 llm = LLM()
 engine = ScanEngine(db, llm)
+scheduler = ScanScheduler(db, engine)
 sse_clients: list[asyncio.Queue] = []
 
 
@@ -37,7 +41,10 @@ engine.on_event = broadcast
 @asynccontextmanager
 async def lifespan(app):
     await db.initialize()
+    await scheduler.ensure_table()
+    await scheduler.start()
     yield
+    await scheduler.stop()
     await db.close()
 
 app = FastAPI(title="Sentinel", description="AI Security Scanner", lifespan=lifespan)
@@ -167,6 +174,60 @@ async def event_stream():
 @app.get("/api/profiles")
 async def get_profiles():
     return {name: checks for name, checks in SCAN_PROFILES.items()}
+
+
+# ── Schedules ───────────────────────────────────────────────────────
+
+@app.get("/api/schedules")
+async def list_schedules():
+    return await scheduler.list_schedules()
+
+
+@app.post("/api/schedules")
+async def create_schedule(request: Request):
+    body = await request.json()
+    url = body.get("url", "").strip()
+    interval = body.get("interval", "24h")
+    scan_type = body.get("scan_type", "standard")
+    if not url:
+        return {"error": "URL required"}
+    return await scheduler.add_schedule(url, interval, scan_type)
+
+
+@app.delete("/api/schedules/{schedule_id}")
+async def delete_schedule(schedule_id: int):
+    return {"deleted": await scheduler.delete_schedule(schedule_id)}
+
+
+@app.post("/api/schedules/{schedule_id}/toggle")
+async def toggle_schedule(schedule_id: int):
+    result = await scheduler.toggle_schedule(schedule_id)
+    return result or {"error": "Schedule not found"}
+
+
+# ── Diff/Compare ────────────────────────────────────────────────────
+
+@app.get("/api/diff/{old_id}/{new_id}")
+async def diff_scans(old_id: int, new_id: int):
+    return await compare_scans(db, old_id, new_id)
+
+
+# ── Export ──────────────────────────────────────────────────────────
+
+@app.get("/api/export/{scan_id}/json")
+async def export_scan_json(scan_id: int):
+    data = await export_json(db, scan_id)
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=sentinel-scan-{scan_id}.json"},
+    )
+
+
+@app.get("/api/export/{scan_id}/html")
+async def export_scan_html(scan_id: int):
+    data = await export_html(db, scan_id)
+    return HTMLResponse(data)
 
 
 # ── Dashboard ───────────────────────────────────────────────────────

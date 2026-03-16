@@ -173,6 +173,57 @@ def targets():
 
 
 @cli.command()
+@click.argument("old_id", type=int)
+@click.argument("new_id", type=int)
+def diff(old_id, new_id):
+    """Compare two scans (regression tracking)."""
+    async def _run():
+        db, _, _ = await _services()
+        from src.scanner.diff import compare_scans
+        result = await compare_scans(db, old_id, new_id)
+        if result.get("error"):
+            click.echo(f"Error: {result['error']}")
+            await db.close()
+            return
+        click.echo(f"\n{result['summary']}")
+        if result["new_findings"]:
+            click.echo(f"\n  NEW issues ({len(result['new_findings'])}):")
+            for f in result["new_findings"]:
+                click.echo(f"    + [{f['severity']}] {f['title']}")
+        if result["resolved_findings"]:
+            click.echo(f"\n  RESOLVED ({len(result['resolved_findings'])}):")
+            for f in result["resolved_findings"]:
+                click.echo(f"    - [{f['severity']}] {f['title']}")
+        click.echo()
+        await db.close()
+    asyncio.run(_run())
+
+
+@cli.command("export")
+@click.argument("scan_id", type=int)
+@click.option("--format", "fmt", default="json", help="Export format: json or html")
+@click.option("--output", "-o", default=None, help="Output file path")
+def export_cmd(scan_id, fmt, output):
+    """Export scan report as JSON or HTML."""
+    async def _run():
+        db, _, _ = await _services()
+        from src.scanner.export import export_json, export_html
+        if fmt == "html":
+            data = await export_html(db, scan_id)
+        else:
+            data = await export_json(db, scan_id)
+
+        if output:
+            with open(output, "w", encoding="utf-8") as f:
+                f.write(data)
+            click.echo(f"Exported to {output}")
+        else:
+            click.echo(data)
+        await db.close()
+    asyncio.run(_run())
+
+
+@cli.command()
 @click.option("--port", default=None, type=int)
 def serve(port):
     """Start the web dashboard."""

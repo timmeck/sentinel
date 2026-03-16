@@ -13,6 +13,13 @@ from src.scanner.checks import (
     check_headers, check_ssl, check_ports, check_cookies,
     check_paths, check_technology, check_https_redirect,
 )
+from src.scanner.crawler import check_crawl
+from src.scanner.vulns import (
+    check_sqli, check_xss, check_open_redirect,
+    check_directory_traversal, check_rate_limiting, check_cors_deep,
+)
+from src.scanner.dns_checks import check_dns
+from src.scanner.api_checks import check_api
 from src.utils.logger import get_logger
 
 log = get_logger("engine")
@@ -26,16 +33,29 @@ SCAN_MODULES = {
     "paths": ("Path Discovery", check_paths),
     "technology": ("Technology Detection", check_technology),
     "https_redirect": ("HTTPS Redirect", check_https_redirect),
+    "crawler": ("Web Crawler/Spider", check_crawl),
+    "sqli": ("SQL Injection Test", check_sqli),
+    "xss": ("XSS Test", check_xss),
+    "open_redirect": ("Open Redirect Test", check_open_redirect),
+    "traversal": ("Directory Traversal Test", check_directory_traversal),
+    "rate_limit": ("Rate Limiting Check", check_rate_limiting),
+    "cors": ("CORS Deep Check", check_cors_deep),
+    "dns": ("DNS & Subdomain Analysis", check_dns),
+    "api": ("API Security Check", check_api),
 }
 
 SCAN_PROFILES = {
     "quick": ["headers", "ssl", "https_redirect", "technology"],
-    "standard": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology"],
-    "full": list(SCAN_MODULES.keys()),
+    "standard": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology", "cors"],
+    "full": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology",
+             "crawler", "cors", "dns", "api", "rate_limit", "ports",
+             "sqli", "xss", "open_redirect", "traversal"],
     "headers": ["headers"],
     "ssl": ["ssl", "https_redirect"],
     "ports": ["ports"],
-    "recon": ["technology", "paths", "ports"],
+    "recon": ["technology", "paths", "ports", "dns", "crawler"],
+    "vulns": ["sqli", "xss", "open_redirect", "traversal", "cors"],
+    "api": ["api", "cors", "rate_limit"],
 }
 
 
