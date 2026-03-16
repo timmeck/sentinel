@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel — AI Security Scanner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #1a1a2e; }
+        header h1 { font-size: 1.5em; color: #00ff88; }
+        header h1 span { color: #666; font-weight: 300; }
+
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
+        .stat-card { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-card .value { font-size: 2em; font-weight: 700; color: #00ff88; }
+        .stat-card .label { color: #888; font-size: 0.85em; margin-top: 4px; }
+        .stat-card.warning .value { color: #ff6b35; }
+
+        .scan-form { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 24px; margin: 24px 0; }
+        .scan-form h2 { margin-bottom: 16px; color: #00ff88; }
+        .form-row { display: flex; gap: 12px; }
+        input[type="text"], select { background: #0a0a0f; border: 1px solid #2a2a3e; color: #e0e0e0; padding: 12px 16px; border-radius: 8px; font-size: 1em; }
+        input[type="text"] { flex: 1; }
+        select { min-width: 140px; }
+        button { background: #00ff88; color: #0a0a0f; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #00cc6a; }
+        button:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        .scan-list { margin-top: 24px; }
+        .scan-list h2 { margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; color: #888; padding: 12px 16px; border-bottom: 1px solid #1a1a2e; font-weight: 500; }
+        td { padding: 12px 16px; border-bottom: 1px solid #0f0f18; }
+        tr:hover { background: #15151f; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge.critical { background: #ff000030; color: #ff4444; }
+        .badge.high { background: #ff6b3530; color: #ff6b35; }
+        .badge.medium { background: #ffaa0030; color: #ffaa00; }
+        .badge.low { background: #00aaff30; color: #00aaff; }
+        .badge.info { background: #66666630; color: #999; }
+        .badge.running { background: #00ff8830; color: #00ff88; animation: pulse 1.5s infinite; }
+        .badge.completed { background: #00ff8830; color: #00ff88; }
+        .badge.failed { background: #ff000030; color: #ff4444; }
+
+        .score { font-weight: 700; font-size: 1.1em; }
+        .score.good { color: #00ff88; }
+        .score.warn { color: #ffaa00; }
+        .score.bad { color: #ff4444; }
+
+        .live-feed { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 24px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85em; }
+        .live-feed .event { padding: 4px 0; color: #00ff88; }
+        .live-feed .event.error { color: #ff4444; }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        a { color: #00ff88; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Sentinel <span>AI Security Scanner</span></h1>
+            <div style="color:#666">Port {{ port }}</div>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value">{{ stats.targets }}</div>
+                <div class="label">Targets</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ stats.scans }}</div>
+                <div class="label">Scans</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ stats.findings }}</div>
+                <div class="label">Findings</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="value">{{ stats.critical_high }}</div>
+                <div class="label">Critical/High</div>
+            </div>
+        </div>
+
+        <div class="scan-form">
+            <h2>New Scan</h2>
+            <div class="form-row">
+                <input type="text" id="url" placeholder="https://example.com" />
+                <select id="scan_type">
+                    <option value="full">Full Scan</option>
+                    <option value="standard">Standard</option>
+                    <option value="quick">Quick</option>
+                    <option value="headers">Headers Only</option>
+                    <option value="ssl">SSL Only</option>
+                    <option value="ports">Ports Only</option>
+                    <option value="recon">Recon</option>
+                </select>
+                <button id="scanBtn" onclick="startScan()">Scan</button>
+            </div>
+        </div>
+
+        <div class="live-feed" id="feed"></div>
+
+        <div class="scan-list">
+            <h2>Recent Scans</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Target</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                        <th>Findings</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="scanTable">
+                    {% for scan in scans %}
+                    <tr onclick="location.href='/api/scans/{{ scan.id }}'" style="cursor:pointer">
+                        <td>{{ scan.url or scan.target_name }}</td>
+                        <td>{{ scan.scan_type }}</td>
+                        <td><span class="badge {{ scan.status }}">{{ scan.status }}</span></td>
+                        <td>
+                            {% if scan.score is not none %}
+                            <span class="score {% if scan.score >= 80 %}good{% elif scan.score >= 50 %}warn{% else %}bad{% endif %}">
+                                {{ "%.0f"|format(scan.score) }}/100
+                            </span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ scan.findings_count }}</td>
+                        <td>{{ scan.created_at[:16] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const feed = document.getElementById('feed');
+        function addEvent(msg, isError) {
+            const div = document.createElement('div');
+            div.className = 'event' + (isError ? ' error' : '');
+            div.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+            feed.prepend(div);
+            if (feed.children.length > 50) feed.lastChild.remove();
+        }
+
+        // SSE
+        const es = new EventSource('/api/events/stream');
+        es.addEventListener('scan_started', e => {
+            const d = JSON.parse(e.data);
+            addEvent(`Scan started: ${d.url} (${d.type})`);
+        });
+        es.addEventListener('check_running', e => {
+            const d = JSON.parse(e.data);
+            addEvent(`Running: ${d.check}`);
+        });
+        es.addEventListener('scan_completed', e => {
+            const d = JSON.parse(e.data);
+            addEvent(`Scan complete: Score ${d.score}/100, ${d.findings} findings`);
+            setTimeout(() => location.reload(), 1000);
+        });
+        es.addEventListener('scan_failed', e => {
+            const d = JSON.parse(e.data);
+            addEvent(`Scan failed: ${d.error}`, true);
+        });
+
+        async function startScan() {
+            const url = document.getElementById('url').value.trim();
+            const type = document.getElementById('scan_type').value;
+            if (!url) return;
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+            btn.textContent = 'Scanning...';
+            addEvent(`Starting ${type} scan on ${url}...`);
+            try {
+                const resp = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url, scan_type: type}),
+                });
+                const data = await resp.json();
+                if (data.error) addEvent(`Error: ${data.error}`, true);
+            } catch(e) {
+                addEvent(`Request failed: ${e}`, true);
+            }
+            btn.disabled = false;
+            btn.textContent = 'Scan';
+        }
+
+        document.getElementById('url').addEventListener('keypress', e => {
+            if (e.key === 'Enter') startScan();
+        });
+    </script>
+</body>
+</html>

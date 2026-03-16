@@ -1,0 +1,60 @@
+"""LLM abstraction -- Anthropic Claude + Ollama."""
+
+import httpx
+from src.config import LLM_PROVIDER, ANTHROPIC_API_KEY, OLLAMA_URL, DEFAULT_MODEL, LLM_MAX_RETRIES, LLM_RETRY_DELAY
+from src.utils.logger import get_logger
+
+log = get_logger("llm")
+
+
+class LLM:
+    def __init__(self):
+        self.provider = LLM_PROVIDER
+        self.model = DEFAULT_MODEL
+        self._failures = 0
+        self._max_failures = 5
+
+    @property
+    def is_healthy(self) -> bool:
+        return self._failures < self._max_failures
+
+    async def query(self, prompt: str, system: str = "You are a helpful assistant.",
+                    max_tokens: int = 2000) -> str | None:
+        for attempt in range(LLM_MAX_RETRIES):
+            try:
+                if self.provider == "anthropic":
+                    return await self._anthropic(prompt, system, max_tokens)
+                else:
+                    return await self._ollama(prompt, system, max_tokens)
+            except Exception as e:
+                self._failures += 1
+                log.warning(f"LLM attempt {attempt + 1} failed: {e}")
+                if attempt < LLM_MAX_RETRIES - 1:
+                    import asyncio
+                    await asyncio.sleep(LLM_RETRY_DELAY * (2 ** attempt))
+        return None
+
+    async def _anthropic(self, prompt, system, max_tokens) -> str:
+        import anthropic
+        client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+        resp = await client.messages.create(
+            model=self.model, max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        self._failures = 0
+        return resp.content[0].text if resp.content else None
+
+    async def _ollama(self, prompt, system, max_tokens) -> str:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{OLLAMA_URL}/api/chat", json={
+                "model": self.model, "stream": False,
+                "options": {"num_predict": max_tokens},
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+            })
+            resp.raise_for_status()
+            self._failures = 0
+            return resp.json().get("message", {}).get("content")
