@@ -3,110 +3,901 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel — AI Security Scanner</title>
+    <title>SENTINEL — AI Security Scanner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: #e0e0e0; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #1a1a2e; }
-        header h1 { font-size: 1.5em; color: #00ff88; }
-        header h1 span { color: #666; font-weight: 300; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
-        .stat-card { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 20px; text-align: center; }
-        .stat-card .value { font-size: 2em; font-weight: 700; color: #00ff88; }
-        .stat-card .label { color: #888; font-size: 0.85em; margin-top: 4px; }
-        .stat-card.warning .value { color: #ff6b35; }
+        :root {
+            --bg-primary: #0d0d14;
+            --bg-card: #12121c;
+            --bg-input: #0a0a10;
+            --bg-evidence: #08080e;
+            --border: #1e1e2e;
+            --border-light: #2a2a3e;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #3b82f6;
+            --info: #6b7280;
+            --safe: #22c55e;
+            --accent: #ef4444;
+        }
 
-        .scan-form { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 24px; margin: 24px 0; }
-        .scan-form h2 { margin-bottom: 16px; color: #00ff88; }
-        .form-row { display: flex; gap: 12px; }
-        input[type="text"], select { background: #0a0a0f; border: 1px solid #2a2a3e; color: #e0e0e0; padding: 12px 16px; border-radius: 8px; font-size: 1em; }
-        input[type="text"] { flex: 1; }
-        select { min-width: 140px; }
-        button { background: #00ff88; color: #0a0a0f; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-        button:hover { background: #00cc6a; }
-        button:disabled { background: #333; color: #666; cursor: not-allowed; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
 
-        .scan-list { margin-top: 24px; }
-        .scan-list h2 { margin-bottom: 16px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; color: #888; padding: 12px 16px; border-bottom: 1px solid #1a1a2e; font-weight: 500; }
-        td { padding: 12px 16px; border-bottom: 1px solid #0f0f18; }
-        tr:hover { background: #15151f; }
+        /* ── HEADER ────────────────────────────────────────── */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
 
-        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
-        .badge.critical { background: #ff000030; color: #ff4444; }
-        .badge.high { background: #ff6b3530; color: #ff6b35; }
-        .badge.medium { background: #ffaa0030; color: #ffaa00; }
-        .badge.low { background: #00aaff30; color: #00aaff; }
-        .badge.info { background: #66666630; color: #999; }
-        .badge.running { background: #00ff8830; color: #00ff88; animation: pulse 1.5s infinite; }
-        .badge.completed { background: #00ff8830; color: #00ff88; }
-        .badge.failed { background: #ff000030; color: #ff4444; }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
 
-        .score { font-weight: 700; font-size: 1.1em; }
-        .score.good { color: #00ff88; }
-        .score.warn { color: #ffaa00; }
-        .score.bad { color: #ff4444; }
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 3px;
+            color: var(--critical);
+            text-transform: uppercase;
+        }
 
-        .live-feed { background: #12121a; border: 1px solid #1a1a2e; border-radius: 12px; padding: 16px; margin-top: 24px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85em; }
-        .live-feed .event { padding: 4px 0; color: #00ff88; }
-        .live-feed .event.error { color: #ff4444; }
+        .logo-sub {
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            margin-left: 12px;
+        }
+
+        .header-stats {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .header-stat .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .header-stat.alert .val {
+            color: var(--critical);
+        }
+
+        .header-stat.alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            padding: 4px 10px;
+            border-radius: 2px;
+        }
+
+        /* ── MAIN CONTAINER ────────────────────────────────── */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* ── SCAN PANEL ────────────────────────────────────── */
+        .scan-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .scan-panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .scan-form {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .scan-input {
+            flex: 1;
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 10px 16px;
+            border-radius: 2px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .scan-input:focus {
+            border-color: var(--critical);
+        }
+
+        .scan-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .scan-select {
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            padding: 10px 14px;
+            border-radius: 2px;
+            outline: none;
+            min-width: 140px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .scan-select:focus {
+            border-color: var(--critical);
+        }
+
+        .scan-btn {
+            background: var(--critical);
+            color: #fff;
+            border: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 10px 28px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+        }
+
+        .scan-btn:hover { background: #dc2626; }
+        .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── PROGRESS BAR ──────────────────────────────────── */
+        .progress-area {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-area.active { display: block; }
+
+        .progress-bar-track {
+            width: 100%;
+            height: 3px;
+            background: var(--border);
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--critical);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-bar-fill.indeterminate {
+            width: 30%;
+            animation: indeterminate 1.5s infinite ease-in-out;
+        }
+
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(430%); }
+        }
+
+        .progress-status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* ── LIVE FEED ─────────────────────────────────────── */
+        .live-feed {
+            margin-top: 16px;
+            max-height: 120px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+            display: none;
+        }
+
+        .live-feed.active { display: block; }
+
+        .feed-event {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 2px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .feed-event .ts {
+            color: var(--text-muted);
+            min-width: 70px;
+        }
+
+        .feed-event .msg { color: var(--text-secondary); }
+        .feed-event.error .msg { color: var(--critical); }
+        .feed-event.success .msg { color: var(--safe); }
+
+        /* ── SCANS TABLE ───────────────────────────────────── */
+        .scans-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .scans-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .scans-table thead th {
+            text-align: left;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 10px 24px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .scans-table tbody tr {
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .scans-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .scans-table tbody td {
+            padding: 12px 24px;
+            border-bottom: 1px solid rgba(30, 30, 46, 0.5);
+            font-size: 0.85rem;
+            vertical-align: middle;
+        }
+
+        .scan-target {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .scan-type-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── SCORE INLINE ──────────────────────────────────── */
+        .score-inline {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .score-inline.s-green { color: var(--safe); }
+        .score-inline.s-yellow { color: var(--medium); }
+        .score-inline.s-orange { color: var(--high); }
+        .score-inline.s-red { color: var(--critical); }
+
+        /* ── BADGES ────────────────────────────────────────── */
+        .badge {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .badge-critical { background: rgba(239, 68, 68, 0.15); color: var(--critical); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-high     { background: rgba(249, 115, 22, 0.15); color: var(--high);     border: 1px solid rgba(249, 115, 22, 0.3); }
+        .badge-medium   { background: rgba(234, 179, 8, 0.12);  color: var(--medium);   border: 1px solid rgba(234, 179, 8, 0.25); }
+        .badge-low      { background: rgba(59, 130, 246, 0.15); color: var(--low);      border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-info     { background: rgba(107, 114, 128, 0.15); color: var(--info);    border: 1px solid rgba(107, 114, 128, 0.3); }
+
+        .badge-status {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .badge-running    { background: rgba(59, 130, 246, 0.15); color: var(--low); border: 1px solid rgba(59, 130, 246, 0.3); animation: pulse 1.5s infinite; }
+        .badge-completed  { background: rgba(34, 197, 94, 0.15);  color: var(--safe); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-failed     { background: rgba(239, 68, 68, 0.15);  color: var(--critical); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-pending    { background: rgba(107, 114, 128, 0.15); color: var(--info); border: 1px solid rgba(107, 114, 128, 0.3); }
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        a { color: #00ff88; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+
+        .findings-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .scan-date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* ── DETAIL OVERLAY ────────────────────────────────── */
+        .detail-overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            max-width: 720px;
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-overlay.open {
+            transform: translateX(0);
+        }
+
+        .detail-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 199;
+            display: none;
+        }
+
+        .detail-backdrop.open { display: block; }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .detail-header-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .detail-close {
+            background: none;
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .detail-close:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+
+        .detail-body {
+            padding: 28px;
+            flex: 1;
+        }
+
+        /* ── SCORE CIRCLE ──────────────────────────────────── */
+        .score-section {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            margin-bottom: 28px;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .score-circle svg {
+            width: 120px;
+            height: 120px;
+            transform: rotate(-90deg);
+        }
+
+        .score-circle-bg {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 6;
+        }
+
+        .score-circle-fg {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: butt;
+            stroke-dasharray: 339.292;
+            stroke-dashoffset: 339.292;
+            transition: stroke-dashoffset 0.8s ease;
+        }
+
+        .score-circle-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .score-circle-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .score-circle-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        .score-meta {
+            flex: 1;
+        }
+
+        .score-meta-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+        }
+
+        .score-meta-label {
+            color: var(--text-muted);
+            min-width: 80px;
+        }
+
+        .score-meta-value {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+        }
+
+        /* ── AI REPORT ─────────────────────────────────────── */
+        .report-section {
+            margin-bottom: 28px;
+        }
+
+        .report-section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .report-content {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            white-space: pre-wrap;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── FINDINGS ──────────────────────────────────────── */
+        .findings-section {
+            margin-bottom: 28px;
+        }
+
+        .finding-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .finding-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px 18px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .finding-header:hover {
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        .finding-severity {
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .finding-title-area {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .finding-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .finding-category {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .finding-cwe {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .finding-body {
+            display: none;
+            padding: 0 18px 16px 18px;
+            border-top: 1px solid var(--border);
+        }
+
+        .finding-body.open { display: block; }
+
+        .finding-description {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin: 14px 0;
+            line-height: 1.6;
+        }
+
+        .finding-evidence {
+            background: var(--bg-evidence);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .finding-evidence-label,
+        .finding-rec-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            margin-top: 14px;
+        }
+
+        .finding-recommendation {
+            font-size: 0.82rem;
+            color: var(--safe);
+            line-height: 1.6;
+            padding: 10px 14px;
+            background: rgba(34, 197, 94, 0.05);
+            border-left: 2px solid rgba(34, 197, 94, 0.3);
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* ── DETAIL ACTIONS ────────────────────────────────── */
+        .detail-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 8px 16px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            border: 1px solid var(--border-light);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+        }
+
+        .btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--critical);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--critical);
+        }
+
+        /* ── TOAST ─────────────────────────────────────────── */
+        .toast-container {
+            position: fixed;
+            top: 72px;
+            right: 24px;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px 20px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            min-width: 260px;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toast-in 0.25s ease;
+            border-left: 3px solid var(--text-muted);
+        }
+
+        .toast.toast-success { border-left-color: var(--safe); }
+        .toast.toast-error   { border-left-color: var(--critical); }
+        .toast.toast-info    { border-left-color: var(--low); }
+
+        .toast-exit {
+            animation: toast-out 0.2s ease forwards;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(40px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(40px); }
+        }
+
+        /* ── LOADING ───────────────────────────────────────── */
+        .detail-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 64px 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--critical);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── SCROLLBAR ─────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ── RESPONSIVE ────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .header { padding: 0 16px; }
+            .header-stats { display: none; }
+            .container { padding: 16px; }
+            .scan-form { flex-direction: column; }
+            .score-section { flex-direction: column; align-items: center; text-align: center; }
+            .detail-overlay { max-width: 100%; }
+            .scans-table thead { display: none; }
+            .scans-table tbody tr { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; }
+            .scans-table tbody td { padding: 0; border: none; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <span class="logo">SENTINEL</span>
+            <span class="logo-sub">AI Security Scanner</span>
+        </div>
+        <div class="header-stats">
+            <div class="header-stat">
+                <span class="val">{{ stats.targets }}</span> targets
+            </div>
+            <div class="header-stat">
+                <span class="val">{{ stats.scans }}</span> scans
+            </div>
+            <div class="header-stat">
+                <span class="val">{{ stats.findings }}</span> findings
+            </div>
+            {% if stats.critical_high > 0 %}
+            <div class="header-stat alert">
+                <span class="val">{{ stats.critical_high }}</span> critical/high
+            </div>
+            {% else %}
+            <div class="header-stat">
+                <span class="val">0</span> critical/high
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- DETAIL BACKDROP -->
+    <div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
+
+    <!-- DETAIL OVERLAY -->
+    <div class="detail-overlay" id="detailOverlay">
+        <div class="detail-header">
+            <span class="detail-header-title">Scan Details</span>
+            <button class="detail-close" onclick="closeDetail()">ESC / Close</button>
+        </div>
+        <div class="detail-body" id="detailBody">
+            <!-- populated dynamically -->
+        </div>
+    </div>
+
     <div class="container">
-        <header>
-            <h1>🛡️ Sentinel <span>AI Security Scanner</span></h1>
-            <div style="color:#666">Port {{ port }}</div>
-        </header>
 
-        <div class="stats">
-            <div class="stat-card">
-                <div class="value">{{ stats.targets }}</div>
-                <div class="label">Targets</div>
-            </div>
-            <div class="stat-card">
-                <div class="value">{{ stats.scans }}</div>
-                <div class="label">Scans</div>
-            </div>
-            <div class="stat-card">
-                <div class="value">{{ stats.findings }}</div>
-                <div class="label">Findings</div>
-            </div>
-            <div class="stat-card warning">
-                <div class="value">{{ stats.critical_high }}</div>
-                <div class="label">Critical/High</div>
-            </div>
-        </div>
-
-        <div class="scan-form">
-            <h2>New Scan</h2>
-            <div class="form-row">
-                <input type="text" id="url" placeholder="https://example.com" />
-                <select id="scan_type">
-                    <option value="full">Full Scan</option>
-                    <option value="standard">Standard</option>
+        <!-- SCAN PANEL -->
+        <div class="scan-panel">
+            <div class="scan-panel-title">New Scan</div>
+            <div class="scan-form">
+                <input type="text" class="scan-input" id="urlInput" placeholder="https://target.example.com" spellcheck="false" />
+                <select class="scan-select" id="scanType">
                     <option value="quick">Quick</option>
-                    <option value="headers">Headers Only</option>
-                    <option value="ssl">SSL Only</option>
-                    <option value="ports">Ports Only</option>
-                    <option value="recon">Recon</option>
+                    <option value="standard" selected>Standard</option>
+                    <option value="full">Full Scan</option>
                 </select>
-                <button id="scanBtn" onclick="startScan()">Scan</button>
+                <button class="scan-btn" id="scanBtn" onclick="startScan()">SCAN</button>
             </div>
+            <div class="progress-area" id="progressArea">
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-status" id="progressStatus">Initializing scan...</div>
+            </div>
+            <div class="live-feed" id="liveFeed"></div>
         </div>
 
-        <div class="live-feed" id="feed"></div>
-
-        <div class="scan-list">
-            <h2>Recent Scans</h2>
-            <table>
+        <!-- SCANS TABLE -->
+        <div class="scans-section">
+            <div class="section-header">
+                <span class="section-title">Recent Scans</span>
+            </div>
+            {% if scans %}
+            <table class="scans-table">
                 <thead>
                     <tr>
                         <th>Target</th>
@@ -117,84 +908,366 @@
                         <th>Date</th>
                     </tr>
                 </thead>
-                <tbody id="scanTable">
+                <tbody id="scansTableBody">
                     {% for scan in scans %}
-                    <tr onclick="location.href='/api/scans/{{ scan.id }}'" style="cursor:pointer">
-                        <td>{{ scan.url or scan.target_name }}</td>
-                        <td>{{ scan.scan_type }}</td>
-                        <td><span class="badge {{ scan.status }}">{{ scan.status }}</span></td>
+                    <tr onclick="openDetail('{{ scan.id }}')">
+                        <td><span class="scan-target">{{ scan.target_id or scan.url or scan.target_name or '—' }}</span></td>
+                        <td><span class="scan-type-label">{{ scan.scan_type }}</span></td>
+                        <td><span class="badge badge-status badge-{{ scan.status }}">{{ scan.status }}</span></td>
                         <td>
                             {% if scan.score is not none %}
-                            <span class="score {% if scan.score >= 80 %}good{% elif scan.score >= 50 %}warn{% else %}bad{% endif %}">
-                                {{ "%.0f"|format(scan.score) }}/100
+                            <span class="score-inline {% if scan.score >= 90 %}s-green{% elif scan.score >= 70 %}s-yellow{% elif scan.score >= 50 %}s-orange{% else %}s-red{% endif %}">
+                                {{ "%.0f"|format(scan.score) }}
                             </span>
-                            {% else %}-{% endif %}
+                            {% else %}
+                            <span class="score-inline" style="color: var(--text-muted);">—</span>
+                            {% endif %}
                         </td>
-                        <td>{{ scan.findings_count }}</td>
-                        <td>{{ scan.created_at[:16] }}</td>
+                        <td><span class="findings-count">{{ scan.findings_count }}</span></td>
+                        <td><span class="scan-date">{{ scan.started_at[:16] if scan.started_at else (scan.created_at[:16] if scan.created_at else '—') }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div class="empty-state">No scans yet. Enter a target URL above to begin.</div>
+            {% endif %}
         </div>
+
     </div>
 
     <script>
-        const feed = document.getElementById('feed');
-        function addEvent(msg, isError) {
-            const div = document.createElement('div');
-            div.className = 'event' + (isError ? ' error' : '');
-            div.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-            feed.prepend(div);
-            if (feed.children.length > 50) feed.lastChild.remove();
-        }
+    /* ── STATE ──────────────────────────────────────────── */
+    let scanning = false;
+    let currentScanId = null;
+    let checkCount = 0;
 
-        // SSE
+    /* ── ELEMENTS ──────────────────────────────────────── */
+    const urlInput      = document.getElementById('urlInput');
+    const scanTypeEl    = document.getElementById('scanType');
+    const scanBtn       = document.getElementById('scanBtn');
+    const progressArea  = document.getElementById('progressArea');
+    const progressFill  = document.getElementById('progressFill');
+    const progressStat  = document.getElementById('progressStatus');
+    const liveFeed      = document.getElementById('liveFeed');
+    const detailOverlay = document.getElementById('detailOverlay');
+    const detailBackdrop= document.getElementById('detailBackdrop');
+    const detailBody    = document.getElementById('detailBody');
+
+    /* ── TOAST ──────────────────────────────────────────── */
+    function toast(msg, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const el = document.createElement('div');
+        el.className = `toast toast-${type}`;
+        el.textContent = msg;
+        container.appendChild(el);
+        setTimeout(() => {
+            el.classList.add('toast-exit');
+            setTimeout(() => el.remove(), 250);
+        }, 4000);
+    }
+
+    /* ── FEED ───────────────────────────────────────────── */
+    function addFeed(msg, cls = '') {
+        liveFeed.classList.add('active');
+        const row = document.createElement('div');
+        row.className = 'feed-event' + (cls ? ' ' + cls : '');
+        const ts = document.createElement('span');
+        ts.className = 'ts';
+        ts.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+        const m = document.createElement('span');
+        m.className = 'msg';
+        m.textContent = msg;
+        row.appendChild(ts);
+        row.appendChild(m);
+        liveFeed.prepend(row);
+        if (liveFeed.children.length > 60) liveFeed.lastChild.remove();
+    }
+
+    /* ── SSE ────────────────────────────────────────────── */
+    function connectSSE() {
         const es = new EventSource('/api/events/stream');
+
         es.addEventListener('scan_started', e => {
             const d = JSON.parse(e.data);
-            addEvent(`Scan started: ${d.url} (${d.type})`);
+            checkCount = 0;
+            addFeed(`Scan started: ${d.url || d.target || '?'} [${d.type || d.scan_type || '?'}]`);
+            progressArea.classList.add('active');
+            progressFill.classList.add('indeterminate');
+            progressStat.textContent = 'Scan in progress...';
         });
+
         es.addEventListener('check_running', e => {
             const d = JSON.parse(e.data);
-            addEvent(`Running: ${d.check}`);
+            checkCount++;
+            addFeed(`Check: ${d.check || d.name || '...'}`);
+            progressStat.textContent = `Running check ${checkCount}: ${d.check || d.name || '...'}`;
         });
+
+        es.addEventListener('check_completed', e => {
+            const d = JSON.parse(e.data);
+            addFeed(`Completed: ${d.check || d.name || '...'}`);
+        });
+
+        es.addEventListener('finding', e => {
+            const d = JSON.parse(e.data);
+            addFeed(`Finding [${(d.severity || '?').toUpperCase()}]: ${d.title || d.description || '...'}`, d.severity === 'critical' || d.severity === 'high' ? 'error' : '');
+        });
+
         es.addEventListener('scan_completed', e => {
             const d = JSON.parse(e.data);
-            addEvent(`Scan complete: Score ${d.score}/100, ${d.findings} findings`);
-            setTimeout(() => location.reload(), 1000);
+            addFeed(`Scan complete — Score: ${d.score ?? '?'}/100, ${d.findings ?? '?'} findings`, 'success');
+            progressFill.classList.remove('indeterminate');
+            progressFill.style.width = '100%';
+            progressStat.textContent = 'Scan complete.';
+            scanning = false;
+            scanBtn.disabled = false;
+            scanBtn.textContent = 'SCAN';
+            toast(`Scan complete — Score: ${d.score ?? '?'}/100`, 'success');
+            setTimeout(() => location.reload(), 1500);
         });
+
         es.addEventListener('scan_failed', e => {
             const d = JSON.parse(e.data);
-            addEvent(`Scan failed: ${d.error}`, true);
+            addFeed(`Scan failed: ${d.error || 'Unknown error'}`, 'error');
+            progressFill.classList.remove('indeterminate');
+            progressFill.style.width = '0%';
+            progressStat.textContent = 'Scan failed.';
+            scanning = false;
+            scanBtn.disabled = false;
+            scanBtn.textContent = 'SCAN';
+            toast(`Scan failed: ${d.error || 'Unknown error'}`, 'error');
         });
 
-        async function startScan() {
-            const url = document.getElementById('url').value.trim();
-            const type = document.getElementById('scan_type').value;
-            if (!url) return;
-            const btn = document.getElementById('scanBtn');
-            btn.disabled = true;
-            btn.textContent = 'Scanning...';
-            addEvent(`Starting ${type} scan on ${url}...`);
-            try {
-                const resp = await fetch('/api/scan', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url, scan_type: type}),
-                });
-                const data = await resp.json();
-                if (data.error) addEvent(`Error: ${data.error}`, true);
-            } catch(e) {
-                addEvent(`Request failed: ${e}`, true);
+        es.onerror = () => {
+            // silently reconnect
+        };
+    }
+
+    connectSSE();
+
+    /* ── START SCAN ─────────────────────────────────────── */
+    async function startScan() {
+        const url = urlInput.value.trim();
+        if (!url) { toast('Enter a target URL', 'error'); return; }
+        if (scanning) return;
+
+        scanning = true;
+        scanBtn.disabled = true;
+        scanBtn.textContent = 'SCANNING...';
+        progressArea.classList.add('active');
+        progressFill.classList.add('indeterminate');
+        progressStat.textContent = 'Submitting scan...';
+        addFeed(`Initiating ${scanTypeEl.value} scan on ${url}...`);
+
+        try {
+            const resp = await fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, scan_type: scanTypeEl.value }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) {
+                throw new Error(data.error || `HTTP ${resp.status}`);
             }
-            btn.disabled = false;
-            btn.textContent = 'Scan';
+            currentScanId = data.scan_id || data.id;
+            toast('Scan submitted', 'success');
+        } catch (err) {
+            addFeed(`Error: ${err.message}`, 'error');
+            toast(`Failed: ${err.message}`, 'error');
+            scanning = false;
+            scanBtn.disabled = false;
+            scanBtn.textContent = 'SCAN';
+            progressFill.classList.remove('indeterminate');
+            progressStat.textContent = '';
+        }
+    }
+
+    urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') startScan(); });
+
+    /* ── SCAN DETAIL ────────────────────────────────────── */
+    async function openDetail(scanId) {
+        detailOverlay.classList.add('open');
+        detailBackdrop.classList.add('open');
+        detailBody.innerHTML = '<div class="detail-loading"><div class="spinner"></div>Loading scan data...</div>';
+
+        try {
+            const resp = await fetch(`/api/scans/${scanId}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            renderDetail(data, scanId);
+        } catch (err) {
+            detailBody.innerHTML = `<div class="detail-loading" style="color: var(--critical);">Failed to load: ${err.message}</div>`;
+        }
+    }
+
+    function closeDetail() {
+        detailOverlay.classList.remove('open');
+        detailBackdrop.classList.remove('open');
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeDetail();
+    });
+
+    /* ── RENDER DETAIL ──────────────────────────────────── */
+    function renderDetail(data, scanId) {
+        const scan = data.scan || data;
+        const findings = data.findings || scan.findings || [];
+        const score = scan.score != null ? Math.round(scan.score) : null;
+
+        // Determine score color
+        let scoreColor = 'var(--info)';
+        if (score !== null) {
+            if (score >= 90) scoreColor = 'var(--safe)';
+            else if (score >= 70) scoreColor = 'var(--medium)';
+            else if (score >= 50) scoreColor = 'var(--high)';
+            else scoreColor = 'var(--critical)';
         }
 
-        document.getElementById('url').addEventListener('keypress', e => {
-            if (e.key === 'Enter') startScan();
+        // Score arc
+        const circumference = 339.292;
+        const offset = score !== null ? circumference - (circumference * score / 100) : circumference;
+
+        // Duration
+        let duration = '—';
+        if (scan.started_at && scan.completed_at) {
+            const ms = new Date(scan.completed_at) - new Date(scan.started_at);
+            if (ms > 0) {
+                const secs = Math.round(ms / 1000);
+                duration = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
+            }
+        }
+
+        // Sort findings by severity
+        const sevOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+        findings.sort((a, b) => (sevOrder[a.severity] ?? 5) - (sevOrder[b.severity] ?? 5));
+
+        let html = '';
+
+        // Score section
+        html += `
+        <div class="score-section">
+            <div class="score-circle">
+                <svg viewBox="0 0 120 120">
+                    <circle class="score-circle-bg" cx="60" cy="60" r="54"/>
+                    <circle class="score-circle-fg" cx="60" cy="60" r="54"
+                        style="stroke: ${scoreColor}; stroke-dashoffset: ${offset};" />
+                </svg>
+                <div class="score-circle-text">
+                    <div class="score-circle-value" style="color: ${scoreColor};">${score !== null ? score : '—'}</div>
+                    <div class="score-circle-label">${score !== null ? '/100' : 'N/A'}</div>
+                </div>
+            </div>
+            <div class="score-meta">
+                <div class="score-meta-row"><span class="score-meta-label">Target</span><span class="score-meta-value">${escHtml(scan.target_id || scan.url || scan.target_name || '—')}</span></div>
+                <div class="score-meta-row"><span class="score-meta-label">Type</span><span class="score-meta-value">${escHtml(scan.scan_type || '—')}</span></div>
+                <div class="score-meta-row"><span class="score-meta-label">Status</span><span class="score-meta-value">${escHtml(scan.status || '—')}</span></div>
+                <div class="score-meta-row"><span class="score-meta-label">Duration</span><span class="score-meta-value">${duration}</span></div>
+                <div class="score-meta-row"><span class="score-meta-label">Date</span><span class="score-meta-value">${escHtml((scan.started_at || scan.created_at || '—').substring(0, 19))}</span></div>
+                <div class="score-meta-row"><span class="score-meta-label">Findings</span><span class="score-meta-value">${findings.length}</span></div>
+            </div>
+        </div>`;
+
+        // AI Report
+        if (scan.report) {
+            html += `
+            <div class="report-section">
+                <div class="report-section-title">AI Analysis Report</div>
+                <div class="report-content">${escHtml(scan.report)}</div>
+            </div>`;
+        }
+
+        // Findings
+        if (findings.length > 0) {
+            html += `
+            <div class="findings-section">
+                <div class="report-section-title">Findings (${findings.length})</div>`;
+
+            findings.forEach((f, i) => {
+                const sev = (f.severity || 'info').toLowerCase();
+                html += `
+                <div class="finding-card">
+                    <div class="finding-header" onclick="toggleFinding(this)">
+                        <span class="finding-severity"><span class="badge badge-${sev}">${sev}</span></span>
+                        <div class="finding-title-area">
+                            <div class="finding-title">${escHtml(f.title || f.name || 'Finding')}</div>
+                            <div class="finding-category">${escHtml(f.category || '')}</div>
+                        </div>
+                        ${f.cwe_id ? `<span class="finding-cwe">${escHtml(f.cwe_id)}</span>` : ''}
+                    </div>
+                    <div class="finding-body" id="fb-${i}">
+                        ${f.description ? `<div class="finding-description">${escHtml(f.description)}</div>` : ''}
+                        ${f.evidence ? `<div class="finding-evidence-label">Evidence</div><div class="finding-evidence">${escHtml(f.evidence)}</div>` : ''}
+                        ${f.recommendation ? `<div class="finding-rec-label">Recommendation</div><div class="finding-recommendation">${escHtml(f.recommendation)}</div>` : ''}
+                    </div>
+                </div>`;
+            });
+
+            html += `</div>`;
+        }
+
+        // Actions
+        html += `
+        <div class="detail-actions">
+            <button class="btn" onclick="exportScan('${scanId}', 'json')">Export JSON</button>
+            <button class="btn" onclick="exportScan('${scanId}', 'csv')">Export CSV</button>
+            <button class="btn" onclick="exportScan('${scanId}', 'markdown')">Export Markdown</button>
+            <button class="btn btn-danger" onclick="deleteScan('${scanId}')">Delete Scan</button>
+        </div>`;
+
+        detailBody.innerHTML = html;
+
+        // Animate score circle
+        requestAnimationFrame(() => {
+            const fg = detailBody.querySelector('.score-circle-fg');
+            if (fg) fg.style.strokeDashoffset = offset;
         });
+    }
+
+    /* ── TOGGLE FINDING ─────────────────────────────────── */
+    function toggleFinding(headerEl) {
+        const body = headerEl.nextElementSibling;
+        body.classList.toggle('open');
+    }
+
+    /* ── EXPORT ─────────────────────────────────────────── */
+    async function exportScan(scanId, format) {
+        try {
+            const resp = await fetch(`/api/export/${scanId}?format=${format}`, { method: 'POST' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sentinel-scan-${scanId}.${format === 'markdown' ? 'md' : format}`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast(`Exported as ${format.toUpperCase()}`, 'success');
+        } catch (err) {
+            toast(`Export failed: ${err.message}`, 'error');
+        }
+    }
+
+    /* ── DELETE ──────────────────────────────────────────── */
+    async function deleteScan(scanId) {
+        if (!confirm('Delete this scan and all its findings?')) return;
+        try {
+            const resp = await fetch(`/api/scans/${scanId}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            toast('Scan deleted', 'success');
+            closeDetail();
+            setTimeout(() => location.reload(), 800);
+        } catch (err) {
+            toast(`Delete failed: ${err.message}`, 'error');
+        }
+    }
+
+    /* ── UTIL ───────────────────────────────────────────── */
+    function escHtml(str) {
+        if (str == null) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
     </script>
 </body>
 </html>
