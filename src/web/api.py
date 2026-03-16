@@ -236,7 +236,7 @@ async def export_scan_html(scan_id: int):
 async def dashboard():
     template_path = Path(__file__).parent / "templates" / "dashboard.html"
     if template_path.exists():
-        template = Template(template_path.read_text())
+        template = Template(template_path.read_text(encoding="utf-8"))
         stats = await db.get_stats()
         recent_scans = await db.list_scans(limit=10)
         return template.render(stats=stats, scans=recent_scans, port=SENTINEL_PORT)
