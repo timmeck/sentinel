@@ -1,0 +1,12 @@
+services:
+  sentinel:
+    build: .
+    ports:
+      - "8500:8500"
+    volumes:
+      - sentinel-data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+volumes:
+  sentinel-data:
