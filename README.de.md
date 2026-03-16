@@ -6,6 +6,8 @@ Self-hosted Security Scanner mit AI-Analyse. Scannt Web-Apps auf Schwachstellen 
 
 **Reines Python + SQLite. 49 Tests. Keine API-Keys noetig.**
 
+![Sentinel Dashboard](docs/dashboard.png)
+
 ## Features
 
 | Feature | Beschreibung |

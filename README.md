@@ -18,6 +18,8 @@ Self-hosted security scanner with AI-powered analysis. Scans web apps for vulner
 
 **Pure Python + SQLite. 49 tests. No API keys required.**
 
+![Sentinel Dashboard](docs/dashboard.png)
+
 ## Features
 
 | Feature | Description |
