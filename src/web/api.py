@@ -51,6 +51,51 @@ app = FastAPI(title="Sentinel", description="AI Security Scanner", lifespan=life
 app.add_middleware(AuthMiddleware)
 
 
+# ── Nexus Protocol Endpoint ────────────────────────────────────────
+
+@app.post("/nexus/handle")
+async def nexus_handle(request: Request):
+    """Handle incoming NexusRequest from the Nexus protocol layer."""
+    import time, uuid
+    body = await request.json()
+    start = time.perf_counter_ns()
+    capability = body.get("capability", "")
+    query = body.get("query", "")
+    req_id = body.get("request_id", "")
+    from_agent = body.get("from_agent", "")
+    params = {**body.get("constraints", {}), **body.get("context", {})}
+
+    try:
+        if capability == "security_analysis":
+            scan_type = params.get("scan_type", "quick")
+            result = await engine.scan(query, scan_type=scan_type, target_name="nexus-scan")
+            answer = json.dumps(result, default=str) if isinstance(result, dict) else str(result)
+            confidence = 0.85
+        elif capability == "threat_detection":
+            result = await engine.scan(query, scan_type="quick", target_name="nexus-threat-check")
+            answer = json.dumps(result, default=str) if isinstance(result, dict) else str(result)
+            confidence = 0.90
+        else:
+            elapsed = (time.perf_counter_ns() - start) // 1_000_000
+            return {"response_id": uuid.uuid4().hex, "request_id": req_id,
+                    "from_agent": "sentinel", "to_agent": from_agent,
+                    "status": "failed", "answer": "", "confidence": 0.0,
+                    "error": f"Unsupported capability: {capability}",
+                    "processing_ms": elapsed, "cost": 0.0, "sources": [], "meta": {}}
+
+        elapsed = (time.perf_counter_ns() - start) // 1_000_000
+        return {"response_id": uuid.uuid4().hex, "request_id": req_id,
+                "from_agent": "sentinel", "to_agent": from_agent,
+                "status": "completed", "answer": answer, "confidence": confidence,
+                "processing_ms": elapsed, "cost": 0.02, "sources": [], "meta": {"capability": capability}}
+    except Exception as e:
+        elapsed = (time.perf_counter_ns() - start) // 1_000_000
+        return {"response_id": uuid.uuid4().hex, "request_id": req_id,
+                "from_agent": "sentinel", "to_agent": from_agent,
+                "status": "failed", "answer": "", "confidence": 0.0,
+                "error": str(e), "processing_ms": elapsed, "cost": 0.0, "sources": [], "meta": {}}
+
+
 # ── Status ──────────────────────────────────────────────────────────
 
 @app.get("/api/status")
