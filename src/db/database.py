@@ -1,6 +1,7 @@
 """Database layer for Sentinel -- AI Security Scanner."""
 
 import json
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -99,7 +100,7 @@ class Database:
             if s:
                 try:
                     await self.conn.execute(s)
-                except Exception:
+                except (sqlite3.OperationalError, sqlite3.ProgrammingError):
                     pass
         await self.conn.commit()
         await ensure_embeddings_table(self.conn)
@@ -222,7 +223,7 @@ class Database:
                 "INSERT INTO findings_fts(rowid, title, description, recommendation) VALUES (?, ?, ?, ?)",
                 (fid, title, description, recommendation or ""),
             )
-        except Exception:
+        except (sqlite3.OperationalError, sqlite3.ProgrammingError):
             pass
         # Update findings count
         await self.conn.execute("UPDATE scans SET findings_count = findings_count + 1 WHERE id = ?", (scan_id,))
@@ -269,7 +270,7 @@ class Database:
                     row = dict(r)
                     fts_scores[row["id"]] = 1.0 - (abs(row.get("rank", 0)) / max_rank) if max_rank else 0.5
                     fts_lookup[row["id"]] = row
-        except Exception:
+        except (sqlite3.OperationalError, sqlite3.ProgrammingError):
             pass
 
         all_ids = set(semantic_scores.keys()) | set(fts_scores.keys())
@@ -321,7 +322,7 @@ class Database:
             if d.get("data"):
                 try:
                     d["data"] = json.loads(d["data"])
-                except Exception:
+                except (json.JSONDecodeError, ValueError):
                     pass
             results.append(d)
         return results
