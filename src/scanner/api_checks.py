@@ -10,7 +10,9 @@ Checks:
 
 import asyncio
 from urllib.parse import urlparse
+
 import httpx
+
 from src.config import SCAN_TIMEOUT
 from src.utils.logger import get_logger
 
@@ -18,15 +20,30 @@ log = get_logger("api_checks")
 
 # Common API paths to probe
 API_PATHS = [
-    "/graphql", "/api/graphql", "/v1/graphql",
-    "/swagger.json", "/swagger/v1/swagger.json", "/api-docs",
-    "/openapi.json", "/openapi.yaml", "/api/openapi.json",
-    "/docs", "/api/docs", "/redoc",
-    "/api/v1/", "/api/v2/", "/api/v3/",
-    "/api/health", "/api/status", "/api/ping",
-    "/api/users", "/api/admin", "/api/config",
+    "/graphql",
+    "/api/graphql",
+    "/v1/graphql",
+    "/swagger.json",
+    "/swagger/v1/swagger.json",
+    "/api-docs",
+    "/openapi.json",
+    "/openapi.yaml",
+    "/api/openapi.json",
+    "/docs",
+    "/api/docs",
+    "/redoc",
+    "/api/v1/",
+    "/api/v2/",
+    "/api/v3/",
+    "/api/health",
+    "/api/status",
+    "/api/ping",
+    "/api/users",
+    "/api/admin",
+    "/api/config",
     "/.well-known/openid-configuration",
-    "/api/debug", "/api/test",
+    "/api/debug",
+    "/api/test",
 ]
 
 GRAPHQL_INTROSPECTION = '{"query": "{ __schema { types { name } } }"}'
@@ -46,7 +63,13 @@ async def check_api(url: str) -> list[dict]:
             async with sem:
                 try:
                     resp = await client.get(f"{base}{path}")
-                    return path, resp.status_code, resp.headers.get("content-type", ""), len(resp.content), resp.text[:2000]
+                    return (
+                        path,
+                        resp.status_code,
+                        resp.headers.get("content-type", ""),
+                        len(resp.content),
+                        resp.text[:2000],
+                    )
                 except Exception:
                     return path, None, "", 0, ""
 
@@ -62,29 +85,33 @@ async def check_api(url: str) -> list[dict]:
                 # Check for Swagger/OpenAPI exposure
                 if any(kw in path for kw in ["swagger", "openapi", "api-docs"]):
                     if "application/json" in content_type or "swagger" in body.lower() or "openapi" in body.lower():
-                        findings.append({
-                            "severity": "medium",
-                            "category": "api",
-                            "title": f"API documentation exposed: {path}",
-                            "description": f"API documentation/spec is publicly accessible at {path}. Attackers can study your API structure.",
-                            "evidence": f"GET {base}{path} -> 200 ({size} bytes), Content-Type: {content_type}",
-                            "recommendation": "Restrict API documentation to authenticated users or internal networks.",
-                            "cwe_id": "CWE-200",
-                        })
+                        findings.append(
+                            {
+                                "severity": "medium",
+                                "category": "api",
+                                "title": f"API documentation exposed: {path}",
+                                "description": f"API documentation/spec is publicly accessible at {path}. Attackers can study your API structure.",
+                                "evidence": f"GET {base}{path} -> 200 ({size} bytes), Content-Type: {content_type}",
+                                "recommendation": "Restrict API documentation to authenticated users or internal networks.",
+                                "cwe_id": "CWE-200",
+                            }
+                        )
                         continue
 
                 # Check for debug/config endpoints
                 if any(kw in path for kw in ["/debug", "/config", "/admin"]):
-                    findings.append({
-                        "severity": "high",
-                        "category": "api",
-                        "title": f"Sensitive API endpoint accessible: {path}",
-                        "description": f"Endpoint {path} is publicly accessible without authentication.",
-                        "evidence": f"GET {base}{path} -> {status} ({size} bytes)",
-                        "recommendation": f"Restrict access to {path} endpoint. Require authentication.",
-                        "cwe_id": "CWE-284",
-                        "cvss_score": 7.5,
-                    })
+                    findings.append(
+                        {
+                            "severity": "high",
+                            "category": "api",
+                            "title": f"Sensitive API endpoint accessible: {path}",
+                            "description": f"Endpoint {path} is publicly accessible without authentication.",
+                            "evidence": f"GET {base}{path} -> {status} ({size} bytes)",
+                            "recommendation": f"Restrict access to {path} endpoint. Require authentication.",
+                            "cwe_id": "CWE-284",
+                            "cvss_score": 7.5,
+                        }
+                    )
                     continue
 
                 exposed_apis.append(path)
@@ -92,29 +119,33 @@ async def check_api(url: str) -> list[dict]:
             # Check for missing auth (200 on user/admin endpoints)
             if status == 200 and any(kw in path for kw in ["/users", "/admin"]):
                 if "json" in content_type:
-                    findings.append({
-                        "severity": "high",
-                        "category": "api",
-                        "title": f"API endpoint returns data without auth: {path}",
-                        "description": f"Endpoint {path} returns JSON data without requiring authentication.",
-                        "evidence": f"GET {base}{path} -> 200, Content-Type: {content_type}",
-                        "recommendation": "Require authentication (Bearer token, API key, session) on all data endpoints.",
-                        "cwe_id": "CWE-306",
-                        "cvss_score": 7.5,
-                    })
+                    findings.append(
+                        {
+                            "severity": "high",
+                            "category": "api",
+                            "title": f"API endpoint returns data without auth: {path}",
+                            "description": f"Endpoint {path} returns JSON data without requiring authentication.",
+                            "evidence": f"GET {base}{path} -> 200, Content-Type: {content_type}",
+                            "recommendation": "Require authentication (Bearer token, API key, session) on all data endpoints.",
+                            "cwe_id": "CWE-306",
+                            "cvss_score": 7.5,
+                        }
+                    )
 
             # Check for verbose error messages
             if status >= 500:
-                if any(kw in body.lower() for kw in ["traceback", "stack trace", "exception", "debug", "file \"/"]):
-                    findings.append({
-                        "severity": "medium",
-                        "category": "api",
-                        "title": f"Verbose error on {path} (HTTP {status})",
-                        "description": f"Server returns detailed error information including stack traces.",
-                        "evidence": f"GET {base}{path} -> {status}, body contains debug info",
-                        "recommendation": "Disable debug mode in production. Return generic error messages.",
-                        "cwe_id": "CWE-209",
-                    })
+                if any(kw in body.lower() for kw in ["traceback", "stack trace", "exception", "debug", 'file "/']):
+                    findings.append(
+                        {
+                            "severity": "medium",
+                            "category": "api",
+                            "title": f"Verbose error on {path} (HTTP {status})",
+                            "description": "Server returns detailed error information including stack traces.",
+                            "evidence": f"GET {base}{path} -> {status}, body contains debug info",
+                            "recommendation": "Disable debug mode in production. Return generic error messages.",
+                            "cwe_id": "CWE-209",
+                        }
+                    )
 
         # GraphQL introspection check
         for gql_path in ["/graphql", "/api/graphql", "/v1/graphql"]:
@@ -125,27 +156,31 @@ async def check_api(url: str) -> list[dict]:
                     headers={"Content-Type": "application/json"},
                 )
                 if resp.status_code == 200 and "__schema" in resp.text:
-                    findings.append({
-                        "severity": "medium",
-                        "category": "api",
-                        "title": f"GraphQL introspection enabled: {gql_path}",
-                        "description": "GraphQL introspection is enabled, exposing the full API schema including types, queries, and mutations.",
-                        "evidence": f"POST {base}{gql_path} with introspection query -> 200",
-                        "recommendation": "Disable GraphQL introspection in production.",
-                        "cwe_id": "CWE-200",
-                    })
+                    findings.append(
+                        {
+                            "severity": "medium",
+                            "category": "api",
+                            "title": f"GraphQL introspection enabled: {gql_path}",
+                            "description": "GraphQL introspection is enabled, exposing the full API schema including types, queries, and mutations.",
+                            "evidence": f"POST {base}{gql_path} with introspection query -> 200",
+                            "recommendation": "Disable GraphQL introspection in production.",
+                            "cwe_id": "CWE-200",
+                        }
+                    )
             except Exception:
                 continue
 
         # Summary
         if exposed_apis:
-            findings.append({
-                "severity": "info",
-                "category": "api",
-                "title": f"Found {len(exposed_apis)} accessible API endpoints",
-                "description": f"Accessible API endpoints: {', '.join(exposed_apis[:10])}",
-                "evidence": f"Endpoints: {exposed_apis}",
-                "recommendation": "Ensure all API endpoints have proper authentication and authorization.",
-            })
+            findings.append(
+                {
+                    "severity": "info",
+                    "category": "api",
+                    "title": f"Found {len(exposed_apis)} accessible API endpoints",
+                    "description": f"Accessible API endpoints: {', '.join(exposed_apis[:10])}",
+                    "evidence": f"Endpoints: {exposed_apis}",
+                    "recommendation": "Ensure all API endpoints have proper authentication and authorization.",
+                }
+            )
 
     return findings

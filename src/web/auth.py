@@ -2,6 +2,7 @@
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
 from src.config import SENTINEL_API_KEY
 
 

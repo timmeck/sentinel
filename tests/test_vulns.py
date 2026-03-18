@@ -1,8 +1,12 @@
 """Tests for vulnerability check modules."""
 
 from src.scanner.vulns import (
-    SQLI_PAYLOADS, SQLI_ERROR_PATTERNS, XSS_PAYLOADS,
-    REDIRECT_PARAMS, TRAVERSAL_PAYLOADS, TRAVERSAL_INDICATORS,
+    REDIRECT_PARAMS,
+    SQLI_ERROR_PATTERNS,
+    SQLI_PAYLOADS,
+    TRAVERSAL_INDICATORS,
+    TRAVERSAL_PAYLOADS,
+    XSS_PAYLOADS,
 )
 
 
@@ -15,6 +19,7 @@ def test_sqli_payloads_defined():
 
 def test_sqli_error_patterns_are_regex():
     import re
+
     for pattern in SQLI_ERROR_PATTERNS:
         re.compile(pattern, re.IGNORECASE)  # Should not raise
 

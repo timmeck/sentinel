@@ -1,14 +1,20 @@
 """Scan Scheduler -- Recurring security scans on a schedule."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from src.utils.logger import get_logger
 
 log = get_logger("scheduler")
 
 INTERVAL_MAP = {
-    "1h": 3600, "6h": 21600, "12h": 43200, "24h": 86400,
-    "1d": 86400, "7d": 604800, "30d": 2592000,
+    "1h": 3600,
+    "6h": 21600,
+    "12h": 43200,
+    "24h": 86400,
+    "1d": 86400,
+    "7d": 604800,
+    "30d": 2592000,
 }
 
 
@@ -36,8 +42,7 @@ class ScanScheduler:
                 created_at TEXT NOT NULL
             )
         """)
-        await self.db.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sched_enabled ON schedules(enabled)")
+        await self.db.conn.execute("CREATE INDEX IF NOT EXISTS idx_sched_enabled ON schedules(enabled)")
         await self.db.conn.commit()
 
     async def add_schedule(self, target_url: str, interval: str, scan_type: str = "standard") -> dict:
@@ -45,15 +50,14 @@ class ScanScheduler:
         if not seconds:
             return {"error": f"Invalid interval. Options: {list(INTERVAL_MAP.keys())}"}
 
-        now = datetime.now(timezone.utc).isoformat()
-        next_run = datetime.fromtimestamp(
-            datetime.now(timezone.utc).timestamp() + seconds, tz=timezone.utc
-        ).isoformat()
+        now = datetime.now(UTC).isoformat()
+        next_run = datetime.fromtimestamp(datetime.now(UTC).timestamp() + seconds, tz=UTC).isoformat()
 
         cursor = await self.db.conn.execute(
             "INSERT INTO schedules (target_url, scan_type, interval_spec, interval_seconds, "
             "next_run_at, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (target_url, scan_type, interval, seconds, next_run, now))
+            (target_url, scan_type, interval, seconds, next_run, now),
+        )
         await self.db.conn.commit()
         return {"id": cursor.lastrowid, "url": target_url, "interval": interval, "scan_type": scan_type}
 
@@ -96,10 +100,10 @@ class ScanScheduler:
     async def _loop(self):
         while self._running:
             try:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 c = await self.db.conn.execute(
-                    "SELECT * FROM schedules WHERE enabled = 1 AND next_run_at <= ?",
-                    (now.isoformat(),))
+                    "SELECT * FROM schedules WHERE enabled = 1 AND next_run_at <= ?", (now.isoformat(),)
+                )
                 due = await c.fetchall()
 
                 for schedule in due:
@@ -111,12 +115,11 @@ class ScanScheduler:
                         log.error(f"Scheduled scan failed: {e}")
 
                     # Update schedule
-                    next_run = datetime.fromtimestamp(
-                        now.timestamp() + s["interval_seconds"], tz=timezone.utc
-                    ).isoformat()
+                    next_run = datetime.fromtimestamp(now.timestamp() + s["interval_seconds"], tz=UTC).isoformat()
                     await self.db.conn.execute(
                         "UPDATE schedules SET last_run_at = ?, next_run_at = ?, run_count = run_count + 1 WHERE id = ?",
-                        (now.isoformat(), next_run, s["id"]))
+                        (now.isoformat(), next_run, s["id"]),
+                    )
                     await self.db.conn.commit()
 
             except Exception as e:

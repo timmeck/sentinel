@@ -7,19 +7,28 @@ Pipeline:
 4. Generate AI security report with recommendations
 """
 
-from src.db.database import Database
 from src.ai.llm import LLM
+from src.db.database import Database
+from src.scanner.api_checks import check_api
 from src.scanner.checks import (
-    check_headers, check_ssl, check_ports, check_cookies,
-    check_paths, check_technology, check_https_redirect,
+    check_cookies,
+    check_headers,
+    check_https_redirect,
+    check_paths,
+    check_ports,
+    check_ssl,
+    check_technology,
 )
 from src.scanner.crawler import check_crawl
-from src.scanner.vulns import (
-    check_sqli, check_xss, check_open_redirect,
-    check_directory_traversal, check_rate_limiting, check_cors_deep,
-)
 from src.scanner.dns_checks import check_dns
-from src.scanner.api_checks import check_api
+from src.scanner.vulns import (
+    check_cors_deep,
+    check_directory_traversal,
+    check_open_redirect,
+    check_rate_limiting,
+    check_sqli,
+    check_xss,
+)
 from src.utils.logger import get_logger
 
 log = get_logger("engine")
@@ -47,9 +56,24 @@ SCAN_MODULES = {
 SCAN_PROFILES = {
     "quick": ["headers", "ssl", "https_redirect", "technology"],
     "standard": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology", "cors"],
-    "full": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology",
-             "crawler", "cors", "dns", "api", "rate_limit", "ports",
-             "sqli", "xss", "open_redirect", "traversal"],
+    "full": [
+        "headers",
+        "ssl",
+        "https_redirect",
+        "cookies",
+        "paths",
+        "technology",
+        "crawler",
+        "cors",
+        "dns",
+        "api",
+        "rate_limit",
+        "ports",
+        "sqli",
+        "xss",
+        "open_redirect",
+        "traversal",
+    ],
     "headers": ["headers"],
     "ssl": ["ssl", "https_redirect"],
     "ports": ["ports"],
@@ -65,7 +89,7 @@ class ScanEngine:
         self.llm = llm
         self.on_event = None  # SSE callback
 
-    async def scan(self, url: str, scan_type: str = "full", target_name: str = None) -> dict:
+    async def scan(self, url: str, scan_type: str = "full", target_name: str | None = None) -> dict:
         """Execute a security scan on a target URL."""
         # Normalize URL
         if not url.startswith("http"):
@@ -96,7 +120,7 @@ class ScanEngine:
                 try:
                     results = await check_fn(url)
                     for finding in results:
-                        stored = await self.db.add_finding(
+                        await self.db.add_finding(
                             scan_id=sid,
                             severity=finding.get("severity", "info"),
                             category=finding.get("category", check_name),
@@ -120,12 +144,11 @@ class ScanEngine:
             report = await self._generate_report(url, all_findings, score)
 
             # Complete scan
-            await self.db.update_scan(sid, status="completed", score=score,
-                                       report=report, completed_at=self.db._now())
-            await self.db.log_event("scan_completed",
-                f"Scan complete: {len(all_findings)} findings, score {score}/100", scan_id=sid)
-            await self._emit("scan_completed", {"scan_id": sid, "score": score,
-                                                 "findings": len(all_findings)})
+            await self.db.update_scan(sid, status="completed", score=score, report=report, completed_at=self.db._now())
+            await self.db.log_event(
+                "scan_completed", f"Scan complete: {len(all_findings)} findings, score {score}/100", scan_id=sid
+            )
+            await self._emit("scan_completed", {"scan_id": sid, "score": score, "findings": len(all_findings)})
 
             return {
                 "scan_id": sid,

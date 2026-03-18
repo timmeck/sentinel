@@ -2,9 +2,11 @@
 
 import asyncio
 import json
+
 import pytest
+
 from src.db.database import Database
-from src.scanner.export import export_json, export_html
+from src.scanner.export import export_html, export_json
 
 
 @pytest.fixture
@@ -31,6 +33,7 @@ def test_export_json(db):
         assert report["summary"]["high"] == 1
         assert len(report["findings"]) == 1
         assert report["findings"][0]["title"] == "Weak cipher"
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -48,6 +51,7 @@ def test_export_html(db):
         assert "75" in html
         assert "Cert expired" in html
         assert "CRITICAL" in html
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -58,4 +62,5 @@ def test_export_nonexistent_scan(db):
 
         html = await export_html(db, 999)
         assert "not found" in html.lower()
+
     asyncio.get_event_loop().run_until_complete(_test())

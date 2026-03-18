@@ -35,11 +35,13 @@ from collections import OrderedDict
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
-from fastapi import FastAPI, Request
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI, Request
 
 log = logging.getLogger("nexus.sdk")
 

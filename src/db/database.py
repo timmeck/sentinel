@@ -1,11 +1,14 @@
 """Database layer for Sentinel -- AI Security Scanner."""
 
-import aiosqlite
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
+import aiosqlite
+
+from src.ai.embeddings import embed_text, search_similar, store_embedding
+from src.ai.embeddings import ensure_table as ensure_embeddings_table
 from src.config import DB_PATH
-from src.ai.embeddings import embed_text, store_embedding, search_similar, ensure_table as ensure_embeddings_table
 from src.utils.logger import get_logger
 
 log = get_logger("db")
@@ -80,7 +83,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS findings_fts USING fts5(
 
 
 class Database:
-    def __init__(self, db_path: Path = None):
+    def __init__(self, db_path: Path | None = None):
         self.db_path = db_path or DB_PATH
         self.conn: aiosqlite.Connection | None = None
 
@@ -94,8 +97,10 @@ class Database:
         for s in FTS_SCHEMA.strip().split(";"):
             s = s.strip()
             if s:
-                try: await self.conn.execute(s)
-                except: pass
+                try:
+                    await self.conn.execute(s)
+                except Exception:
+                    pass
         await self.conn.commit()
         await ensure_embeddings_table(self.conn)
         log.info(f"Database initialized: {self.db_path}")
@@ -106,15 +111,16 @@ class Database:
             self.conn = None
 
     def _now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     # ── Targets ─────────────────────────────────────────────────────
 
-    async def create_target(self, url: str, name: str = None, target_type: str = "web") -> dict:
+    async def create_target(self, url: str, name: str | None = None, target_type: str = "web") -> dict:
         now = self._now()
         cursor = await self.conn.execute(
             "INSERT INTO targets (url, name, target_type, created_at) VALUES (?, ?, ?, ?)",
-            (url, name or url, target_type, now))
+            (url, name or url, target_type, now),
+        )
         await self.conn.commit()
         return await self.get_target(cursor.lastrowid)
 
@@ -148,9 +154,11 @@ class Database:
         now = self._now()
         cursor = await self.conn.execute(
             "INSERT INTO scans (target_id, scan_type, status, started_at, created_at) VALUES (?, ?, 'running', ?, ?)",
-            (target_id, scan_type, now, now))
-        await self.conn.execute("UPDATE targets SET scan_count = scan_count + 1, last_scanned_at = ? WHERE id = ?",
-                                (now, target_id))
+            (target_id, scan_type, now, now),
+        )
+        await self.conn.execute(
+            "UPDATE targets SET scan_count = scan_count + 1, last_scanned_at = ? WHERE id = ?", (now, target_id)
+        )
         await self.conn.commit()
         return await self.get_scan(cursor.lastrowid)
 
@@ -159,20 +167,24 @@ class Database:
         r = await c.fetchone()
         return dict(r) if r else None
 
-    async def list_scans(self, target_id: int = None, limit: int = 50) -> list[dict]:
+    async def list_scans(self, target_id: int | None = None, limit: int = 50) -> list[dict]:
         if target_id:
             c = await self.conn.execute(
                 "SELECT s.*, t.url, t.name as target_name FROM scans s JOIN targets t ON t.id = s.target_id "
-                "WHERE s.target_id = ? ORDER BY s.created_at DESC LIMIT ?", (target_id, limit))
+                "WHERE s.target_id = ? ORDER BY s.created_at DESC LIMIT ?",
+                (target_id, limit),
+            )
         else:
             c = await self.conn.execute(
                 "SELECT s.*, t.url, t.name as target_name FROM scans s JOIN targets t ON t.id = s.target_id "
-                "ORDER BY s.created_at DESC LIMIT ?", (limit,))
+                "ORDER BY s.created_at DESC LIMIT ?",
+                (limit,),
+            )
         return [dict(r) for r in await c.fetchall()]
 
     async def update_scan(self, scan_id: int, **kwargs):
         sets = ", ".join(f"{k} = ?" for k in kwargs)
-        vals = list(kwargs.values()) + [scan_id]
+        vals = [*list(kwargs.values()), scan_id]
         await self.conn.execute(f"UPDATE scans SET {sets} WHERE id = ?", vals)
         await self.conn.commit()
 
@@ -184,24 +196,34 @@ class Database:
 
     # ── Findings ────────────────────────────────────────────────────
 
-    async def add_finding(self, scan_id: int, severity: str, category: str,
-                          title: str, description: str, evidence: str = None,
-                          recommendation: str = None, cwe_id: str = None,
-                          cvss_score: float = None) -> dict:
+    async def add_finding(
+        self,
+        scan_id: int,
+        severity: str,
+        category: str,
+        title: str,
+        description: str,
+        evidence: str | None = None,
+        recommendation: str | None = None,
+        cwe_id: str | None = None,
+        cvss_score: float | None = None,
+    ) -> dict:
         now = self._now()
         cursor = await self.conn.execute(
             "INSERT INTO findings (scan_id, severity, category, title, description, "
             "evidence, recommendation, cwe_id, cvss_score, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (scan_id, severity, category, title, description, evidence,
-             recommendation, cwe_id, cvss_score, now))
+            (scan_id, severity, category, title, description, evidence, recommendation, cwe_id, cvss_score, now),
+        )
         fid = cursor.lastrowid
         # FTS index
         try:
             await self.conn.execute(
                 "INSERT INTO findings_fts(rowid, title, description, recommendation) VALUES (?, ?, ?, ?)",
-                (fid, title, description, recommendation or ""))
-        except: pass
+                (fid, title, description, recommendation or ""),
+            )
+        except Exception:
+            pass
         # Update findings count
         await self.conn.execute("UPDATE scans SET findings_count = findings_count + 1 WHERE id = ?", (scan_id,))
         await self.conn.commit()
@@ -212,9 +234,10 @@ class Database:
         return {"id": fid, "severity": severity, "title": title}
 
     async def get_findings(self, scan_id: int) -> list[dict]:
-        severity_order = "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END"
-        c = await self.conn.execute(
-            f"SELECT * FROM findings WHERE scan_id = ? ORDER BY {severity_order}", (scan_id,))
+        severity_order = (
+            "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END"
+        )
+        c = await self.conn.execute(f"SELECT * FROM findings WHERE scan_id = ? ORDER BY {severity_order}", (scan_id,))
         return [dict(r) for r in await c.fetchall()]
 
     async def search_findings(self, query: str, limit: int = 10) -> list[dict]:
@@ -229,12 +252,15 @@ class Database:
         fts_scores = {}
         fts_lookup = {}
         try:
-            c = await self.conn.execute("""
+            c = await self.conn.execute(
+                """
                 SELECT f.*, rank FROM findings_fts fts
                 JOIN findings f ON f.id = fts.rowid
                 WHERE findings_fts MATCH ?
                 ORDER BY rank LIMIT ?
-            """, (query, limit * 2))
+            """,
+                (query, limit * 2),
+            )
             fts_results = await c.fetchall()
             if fts_results:
                 ranks = [abs(dict(r).get("rank", 0)) for r in fts_results]
@@ -243,7 +269,8 @@ class Database:
                     row = dict(r)
                     fts_scores[row["id"]] = 1.0 - (abs(row.get("rank", 0)) / max_rank) if max_rank else 0.5
                     fts_lookup[row["id"]] = row
-        except: pass
+        except Exception:
+            pass
 
         all_ids = set(semantic_scores.keys()) | set(fts_scores.keys())
         if all_ids:
@@ -268,29 +295,34 @@ class Database:
         # Fallback
         c = await self.conn.execute(
             "SELECT * FROM findings WHERE description LIKE ? OR title LIKE ? LIMIT ?",
-            (f"%{query}%", f"%{query}%", limit))
+            (f"%{query}%", f"%{query}%", limit),
+        )
         return [dict(r) for r in await c.fetchall()]
 
     # ── Activity Log ────────────────────────────────────────────────
 
-    async def log_event(self, event_type: str, message: str, scan_id: int = None, data: dict = None):
+    async def log_event(self, event_type: str, message: str, scan_id: int | None = None, data: dict | None = None):
         await self.conn.execute(
             "INSERT INTO activity_log (scan_id, event_type, message, data, created_at) VALUES (?, ?, ?, ?, ?)",
-            (scan_id, event_type, message, json.dumps(data, default=str) if data else None, self._now()))
+            (scan_id, event_type, message, json.dumps(data, default=str) if data else None, self._now()),
+        )
         await self.conn.commit()
 
-    async def get_activity(self, scan_id: int = None, limit: int = 50) -> list[dict]:
+    async def get_activity(self, scan_id: int | None = None, limit: int = 50) -> list[dict]:
         if scan_id:
-            c = await self.conn.execute("SELECT * FROM activity_log WHERE scan_id = ? ORDER BY created_at DESC LIMIT ?",
-                                        (scan_id, limit))
+            c = await self.conn.execute(
+                "SELECT * FROM activity_log WHERE scan_id = ? ORDER BY created_at DESC LIMIT ?", (scan_id, limit)
+            )
         else:
             c = await self.conn.execute("SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ?", (limit,))
         results = []
         for r in await c.fetchall():
             d = dict(r)
             if d.get("data"):
-                try: d["data"] = json.loads(d["data"])
-                except: pass
+                try:
+                    d["data"] = json.loads(d["data"])
+                except Exception:
+                    pass
             results.append(d)
         return results
 

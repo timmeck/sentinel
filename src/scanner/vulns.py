@@ -11,8 +11,10 @@ Tests for OWASP Top 10 issues using detection payloads (not exploitation):
 
 import asyncio
 import re
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 import httpx
+
 from src.config import SCAN_TIMEOUT
 from src.utils.logger import get_logger
 
@@ -50,7 +52,21 @@ XSS_PAYLOADS = [
 ]
 
 # Open redirect payloads
-REDIRECT_PARAMS = ["url", "redirect", "next", "return", "returnUrl", "redirect_uri", "continue", "dest", "destination", "go", "target", "rurl", "return_url"]
+REDIRECT_PARAMS = [
+    "url",
+    "redirect",
+    "next",
+    "return",
+    "returnUrl",
+    "redirect_uri",
+    "continue",
+    "dest",
+    "destination",
+    "go",
+    "target",
+    "rurl",
+    "return_url",
+]
 REDIRECT_PAYLOADS = [
     "https://evil.com",
     "//evil.com",
@@ -65,8 +81,13 @@ TRAVERSAL_PAYLOADS = [
 ]
 
 TRAVERSAL_INDICATORS = [
-    "root:x:", "root:*:", "[fonts]", "[extensions]",
-    "daemon:", "/bin/bash", "/bin/sh",
+    "root:x:",
+    "root:*:",
+    "[fonts]",
+    "[extensions]",
+    "daemon:",
+    "/bin/bash",
+    "/bin/sh",
 ]
 
 
@@ -82,8 +103,7 @@ async def check_sqli(url: str) -> list[dict]:
     async with httpx.AsyncClient(timeout=SCAN_TIMEOUT, follow_redirects=True, verify=False) as client:
         # Get baseline response
         try:
-            baseline = await client.get(url)
-            baseline_text = baseline.text
+            await client.get(url)
         except Exception:
             return findings
 
@@ -102,16 +122,18 @@ async def check_sqli(url: str) -> list[dict]:
                     # Check for SQL error patterns
                     for pattern in SQLI_ERROR_PATTERNS:
                         if re.search(pattern, body, re.IGNORECASE):
-                            findings.append({
-                                "severity": "critical",
-                                "category": "sqli",
-                                "title": f"Potential SQL Injection in '{param_name}' parameter",
-                                "description": f"SQL error detected when injecting {payload_type} payload into parameter '{param_name}'. Database error message visible in response.",
-                                "evidence": f"Payload: {payload}, Pattern matched: {pattern}, URL: {test_url[:200]}",
-                                "recommendation": f"Use parameterized queries/prepared statements for parameter '{param_name}'. Never concatenate user input into SQL.",
-                                "cwe_id": "CWE-89",
-                                "cvss_score": 9.8,
-                            })
+                            findings.append(
+                                {
+                                    "severity": "critical",
+                                    "category": "sqli",
+                                    "title": f"Potential SQL Injection in '{param_name}' parameter",
+                                    "description": f"SQL error detected when injecting {payload_type} payload into parameter '{param_name}'. Database error message visible in response.",
+                                    "evidence": f"Payload: {payload}, Pattern matched: {pattern}, URL: {test_url[:200]}",
+                                    "recommendation": f"Use parameterized queries/prepared statements for parameter '{param_name}'. Never concatenate user input into SQL.",
+                                    "cwe_id": "CWE-89",
+                                    "cvss_score": 9.8,
+                                }
+                            )
                             break  # One finding per param is enough
                 except Exception:
                     continue
@@ -141,16 +163,18 @@ async def check_xss(url: str) -> list[dict]:
                     resp = await client.get(test_url)
                     # Check if payload is reflected unescaped
                     if payload in resp.text:
-                        findings.append({
-                            "severity": "high",
-                            "category": "xss",
-                            "title": f"Reflected XSS in '{param_name}' parameter",
-                            "description": f"Payload ({payload_type}) reflected unescaped in response for parameter '{param_name}'.",
-                            "evidence": f"Payload: {payload}, reflected in response body. URL: {test_url[:200]}",
-                            "recommendation": f"Sanitize/escape output for parameter '{param_name}'. Implement Content-Security-Policy.",
-                            "cwe_id": "CWE-79",
-                            "cvss_score": 6.1,
-                        })
+                        findings.append(
+                            {
+                                "severity": "high",
+                                "category": "xss",
+                                "title": f"Reflected XSS in '{param_name}' parameter",
+                                "description": f"Payload ({payload_type}) reflected unescaped in response for parameter '{param_name}'.",
+                                "evidence": f"Payload: {payload}, reflected in response body. URL: {test_url[:200]}",
+                                "recommendation": f"Sanitize/escape output for parameter '{param_name}'. Implement Content-Security-Policy.",
+                                "cwe_id": "CWE-79",
+                                "cvss_score": 6.1,
+                            }
+                        )
                         break  # One per param
                 except Exception:
                     continue
@@ -173,16 +197,18 @@ async def check_open_redirect(url: str) -> list[dict]:
                     location = resp.headers.get("location", "")
                     if resp.status_code in (301, 302, 307, 308):
                         if "evil.com" in location:
-                            findings.append({
-                                "severity": "medium",
-                                "category": "redirect",
-                                "title": f"Open redirect via '{param}' parameter",
-                                "description": f"Server redirects to attacker-controlled URL when '{param}' parameter contains external URL.",
-                                "evidence": f"GET {test_url} -> {resp.status_code} Location: {location}",
-                                "recommendation": f"Validate redirect targets against a whitelist. Never redirect to user-supplied URLs.",
-                                "cwe_id": "CWE-601",
-                                "cvss_score": 6.1,
-                            })
+                            findings.append(
+                                {
+                                    "severity": "medium",
+                                    "category": "redirect",
+                                    "title": f"Open redirect via '{param}' parameter",
+                                    "description": f"Server redirects to attacker-controlled URL when '{param}' parameter contains external URL.",
+                                    "evidence": f"GET {test_url} -> {resp.status_code} Location: {location}",
+                                    "recommendation": "Validate redirect targets against a whitelist. Never redirect to user-supplied URLs.",
+                                    "cwe_id": "CWE-601",
+                                    "cvss_score": 6.1,
+                                }
+                            )
                             break  # One per param
                 except Exception:
                     continue
@@ -197,7 +223,11 @@ async def check_directory_traversal(url: str) -> list[dict]:
     params = parse_qs(parsed.query)
 
     # Test URL parameters
-    file_params = [p for p in params if any(kw in p.lower() for kw in ["file", "path", "page", "doc", "template", "include", "dir", "folder"])]
+    file_params = [
+        p
+        for p in params
+        if any(kw in p.lower() for kw in ["file", "path", "page", "doc", "template", "include", "dir", "folder"])
+    ]
 
     if not file_params:
         return findings
@@ -215,16 +245,18 @@ async def check_directory_traversal(url: str) -> list[dict]:
                     resp = await client.get(test_url)
                     for indicator in TRAVERSAL_INDICATORS:
                         if indicator in resp.text:
-                            findings.append({
-                                "severity": "critical",
-                                "category": "traversal",
-                                "title": f"Directory traversal in '{param_name}' parameter",
-                                "description": f"Path traversal payload ({payload_type}) exposed system files via parameter '{param_name}'.",
-                                "evidence": f"Payload: {payload}, Indicator: {indicator} found in response",
-                                "recommendation": f"Validate file paths against a whitelist. Use chroot or sandbox for file access.",
-                                "cwe_id": "CWE-22",
-                                "cvss_score": 9.1,
-                            })
+                            findings.append(
+                                {
+                                    "severity": "critical",
+                                    "category": "traversal",
+                                    "title": f"Directory traversal in '{param_name}' parameter",
+                                    "description": f"Path traversal payload ({payload_type}) exposed system files via parameter '{param_name}'.",
+                                    "evidence": f"Payload: {payload}, Indicator: {indicator} found in response",
+                                    "recommendation": "Validate file paths against a whitelist. Use chroot or sandbox for file access.",
+                                    "cwe_id": "CWE-22",
+                                    "cvss_score": 9.1,
+                                }
+                            )
                             break
                 except Exception:
                     continue
@@ -261,16 +293,18 @@ async def check_rate_limiting(url: str) -> list[dict]:
                     # Check if endpoint actually exists (not 404)
                     check = await client.get(test_url)
                     if check.status_code != 404:
-                        findings.append({
-                            "severity": "medium",
-                            "category": "rate_limit",
-                            "title": f"No rate limiting on {endpoint}",
-                            "description": f"Endpoint {endpoint} accepted {success_count}/10 rapid requests without rate limiting (HTTP 429).",
-                            "evidence": f"10 rapid POST requests to {test_url}, {success_count} succeeded",
-                            "recommendation": "Implement rate limiting on authentication endpoints (e.g., 5 requests/minute).",
-                            "cwe_id": "CWE-307",
-                            "cvss_score": 5.3,
-                        })
+                        findings.append(
+                            {
+                                "severity": "medium",
+                                "category": "rate_limit",
+                                "title": f"No rate limiting on {endpoint}",
+                                "description": f"Endpoint {endpoint} accepted {success_count}/10 rapid requests without rate limiting (HTTP 429).",
+                                "evidence": f"10 rapid POST requests to {test_url}, {success_count} succeeded",
+                                "recommendation": "Implement rate limiting on authentication endpoints (e.g., 5 requests/minute).",
+                                "cwe_id": "CWE-307",
+                                "cvss_score": 5.3,
+                            }
+                        )
             except Exception:
                 continue
 
@@ -296,29 +330,36 @@ async def check_cors_deep(url: str) -> list[dict]:
 
                 if acao == origin:
                     severity = "high" if acac.lower() == "true" else "medium"
-                    findings.append({
-                        "severity": severity,
-                        "category": "cors",
-                        "title": f"CORS reflects {desc}",
-                        "description": f"Server reflects Origin '{origin}' in Access-Control-Allow-Origin. "
-                                      + ("Combined with Allow-Credentials, this allows credential theft." if severity == "high"
-                                         else "Attacker can read responses from any origin."),
-                        "evidence": f"Origin: {origin} -> ACAO: {acao}, ACAC: {acac}",
-                        "recommendation": "Implement strict CORS origin whitelist. Never reflect arbitrary origins.",
-                        "cwe_id": "CWE-942",
-                        "cvss_score": 8.1 if severity == "high" else 5.3,
-                    })
+                    findings.append(
+                        {
+                            "severity": severity,
+                            "category": "cors",
+                            "title": f"CORS reflects {desc}",
+                            "description": f"Server reflects Origin '{origin}' in Access-Control-Allow-Origin. "
+                            + (
+                                "Combined with Allow-Credentials, this allows credential theft."
+                                if severity == "high"
+                                else "Attacker can read responses from any origin."
+                            ),
+                            "evidence": f"Origin: {origin} -> ACAO: {acao}, ACAC: {acac}",
+                            "recommendation": "Implement strict CORS origin whitelist. Never reflect arbitrary origins.",
+                            "cwe_id": "CWE-942",
+                            "cvss_score": 8.1 if severity == "high" else 5.3,
+                        }
+                    )
 
                 elif acao == "null" and origin == "null":
-                    findings.append({
-                        "severity": "medium",
-                        "category": "cors",
-                        "title": "CORS allows null origin",
-                        "description": "Server allows 'null' origin, which can be triggered by sandboxed iframes or local files.",
-                        "evidence": f"Origin: null -> ACAO: null",
-                        "recommendation": "Do not allow 'null' as a valid origin in CORS policy.",
-                        "cwe_id": "CWE-942",
-                    })
+                    findings.append(
+                        {
+                            "severity": "medium",
+                            "category": "cors",
+                            "title": "CORS allows null origin",
+                            "description": "Server allows 'null' origin, which can be triggered by sandboxed iframes or local files.",
+                            "evidence": "Origin: null -> ACAO: null",
+                            "recommendation": "Do not allow 'null' as a valid origin in CORS policy.",
+                            "cwe_id": "CWE-942",
+                        }
+                    )
             except Exception:
                 continue
 

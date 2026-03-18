@@ -1,7 +1,8 @@
 """Tests for API check modules."""
 
-from src.scanner.api_checks import API_PATHS, GRAPHQL_INTROSPECTION
 import json
+
+from src.scanner.api_checks import API_PATHS, GRAPHQL_INTROSPECTION
 
 
 def test_api_paths_format():

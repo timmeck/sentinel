@@ -7,11 +7,12 @@ Crawls a target website to map its attack surface:
 - Input fields and parameters
 """
 
-import asyncio
 import re
-from urllib.parse import urlparse, urljoin
 from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
+
 import httpx
+
 from src.config import SCAN_TIMEOUT
 from src.utils.logger import get_logger
 
@@ -46,17 +47,21 @@ class LinkParser(HTMLParser):
             }
 
         elif tag == "input" and self._current_form is not None:
-            self._current_form["inputs"].append({
-                "name": attrs_dict.get("name", ""),
-                "type": attrs_dict.get("type", "text"),
-                "value": attrs_dict.get("value", ""),
-            })
+            self._current_form["inputs"].append(
+                {
+                    "name": attrs_dict.get("name", ""),
+                    "type": attrs_dict.get("type", "text"),
+                    "value": attrs_dict.get("value", ""),
+                }
+            )
 
         elif tag == "input":
-            self.inputs.append({
-                "name": attrs_dict.get("name", ""),
-                "type": attrs_dict.get("type", "text"),
-            })
+            self.inputs.append(
+                {
+                    "name": attrs_dict.get("name", ""),
+                    "type": attrs_dict.get("type", "text"),
+                }
+            )
 
         elif tag == "script" and "src" in attrs_dict:
             self.scripts.add(urljoin(self.base_url, attrs_dict["src"]))
@@ -147,11 +152,16 @@ async def crawl(url: str, max_pages: int = 20, max_depth: int = 3) -> dict:
                     pass
 
                 # More thorough API endpoint extraction
-                for pattern in re.findall(r'["\'](/(?:api|v\d+|graphql|rest|auth|login|register|search|upload|webhook)[/\w.-]*)["\']', resp.text):
+                for pattern in re.findall(
+                    r'["\'](/(?:api|v\d+|graphql|rest|auth|login|register|search|upload|webhook)[/\w.-]*)["\']',
+                    resp.text,
+                ):
                     api_endpoints.add(urljoin(url, pattern))
 
                 # Find endpoints in JavaScript fetch/axios calls
-                for pattern in re.findall(r'(?:fetch|axios\.\w+|\.(?:get|post|put|delete|patch))\s*\(\s*["\']([^"\']+)["\']', resp.text):
+                for pattern in re.findall(
+                    r'(?:fetch|axios\.\w+|\.(?:get|post|put|delete|patch))\s*\(\s*["\']([^"\']+)["\']', resp.text
+                ):
                     if pattern.startswith("/") or pattern.startswith("http"):
                         api_endpoints.add(urljoin(url, pattern))
 
@@ -177,22 +187,22 @@ async def check_crawl(url: str) -> list[dict]:
     # Report forms without CSRF protection
     for form in result["forms"]:
         has_csrf = any(
-            inp.get("type") == "hidden" and any(
-                tok in inp.get("name", "").lower()
-                for tok in ["csrf", "token", "_token", "nonce"]
-            )
+            inp.get("type") == "hidden"
+            and any(tok in inp.get("name", "").lower() for tok in ["csrf", "token", "_token", "nonce"])
             for inp in form.get("inputs", [])
         )
         if form["method"] == "POST" and not has_csrf:
-            findings.append({
-                "severity": "medium",
-                "category": "crawler",
-                "title": f"Form without CSRF token: {form['action'][:80]}",
-                "description": f"POST form at {form['action']} has no visible CSRF token. May be vulnerable to CSRF attacks.",
-                "evidence": f"Method: {form['method']}, Action: {form['action']}, Inputs: {[i['name'] for i in form.get('inputs', [])]}",
-                "recommendation": "Add CSRF token to all state-changing forms.",
-                "cwe_id": "CWE-352",
-            })
+            findings.append(
+                {
+                    "severity": "medium",
+                    "category": "crawler",
+                    "title": f"Form without CSRF token: {form['action'][:80]}",
+                    "description": f"POST form at {form['action']} has no visible CSRF token. May be vulnerable to CSRF attacks.",
+                    "evidence": f"Method: {form['method']}, Action: {form['action']}, Inputs: {[i['name'] for i in form.get('inputs', [])]}",
+                    "recommendation": "Add CSRF token to all state-changing forms.",
+                    "cwe_id": "CWE-352",
+                }
+            )
 
     # Report login forms
     for form in result["forms"]:
@@ -201,52 +211,60 @@ async def check_crawl(url: str) -> list[dict]:
             action_url = form["action"]
             parsed = urlparse(action_url)
             if parsed.scheme == "http":
-                findings.append({
-                    "severity": "critical",
-                    "category": "crawler",
-                    "title": "Login form submits over HTTP",
-                    "description": f"Password form at {action_url} submits credentials over unencrypted HTTP.",
-                    "evidence": f"Form action: {action_url}",
-                    "recommendation": "Ensure all login forms submit over HTTPS.",
-                    "cwe_id": "CWE-319",
-                    "cvss_score": 9.0,
-                })
+                findings.append(
+                    {
+                        "severity": "critical",
+                        "category": "crawler",
+                        "title": "Login form submits over HTTP",
+                        "description": f"Password form at {action_url} submits credentials over unencrypted HTTP.",
+                        "evidence": f"Form action: {action_url}",
+                        "recommendation": "Ensure all login forms submit over HTTPS.",
+                        "cwe_id": "CWE-319",
+                        "cvss_score": 9.0,
+                    }
+                )
 
     # Report exposed API endpoints
     if result["api_endpoints"]:
-        findings.append({
-            "severity": "info",
-            "category": "crawler",
-            "title": f"Discovered {len(result['api_endpoints'])} API endpoints",
-            "description": f"API endpoints found: {', '.join(result['api_endpoints'][:10])}",
-            "evidence": f"Endpoints: {result['api_endpoints'][:20]}",
-            "recommendation": "Ensure all API endpoints require proper authentication.",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "category": "crawler",
+                "title": f"Discovered {len(result['api_endpoints'])} API endpoints",
+                "description": f"API endpoints found: {', '.join(result['api_endpoints'][:10])}",
+                "evidence": f"Endpoints: {result['api_endpoints'][:20]}",
+                "recommendation": "Ensure all API endpoints require proper authentication.",
+            }
+        )
 
     # Report external links (potential data leakage points)
     if len(result["external_links"]) > 20:
-        findings.append({
-            "severity": "info",
-            "category": "crawler",
-            "title": f"{len(result['external_links'])} external links found",
-            "description": "Large number of external links. Each is a potential data leakage point via Referer header.",
-            "evidence": f"Sample: {result['external_links'][:5]}",
-            "recommendation": "Use rel='noopener noreferrer' on external links and set Referrer-Policy header.",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "category": "crawler",
+                "title": f"{len(result['external_links'])} external links found",
+                "description": "Large number of external links. Each is a potential data leakage point via Referer header.",
+                "evidence": f"Sample: {result['external_links'][:5]}",
+                "recommendation": "Use rel='noopener noreferrer' on external links and set Referrer-Policy header.",
+            }
+        )
 
     # Summary finding
-    findings.append({
-        "severity": "info",
-        "category": "crawler",
-        "title": f"Attack surface: {result['pages_crawled']} pages, {len(result['forms'])} forms, {len(result['parameters'])} params",
-        "description": (
-            f"Crawled {result['pages_crawled']} pages. Found {len(result['internal_links'])} internal links, "
-            f"{len(result['external_links'])} external links, {len(result['forms'])} forms, "
-            f"{len(result['scripts'])} scripts, {len(result['api_endpoints'])} API endpoints, "
-            f"{len(result['parameters'])} unique parameters."
-        ),
-        "evidence": f"Parameters: {result['parameters'][:20]}",
-        "recommendation": "Review all discovered forms and API endpoints for proper security controls.",
-    })
+    findings.append(
+        {
+            "severity": "info",
+            "category": "crawler",
+            "title": f"Attack surface: {result['pages_crawled']} pages, {len(result['forms'])} forms, {len(result['parameters'])} params",
+            "description": (
+                f"Crawled {result['pages_crawled']} pages. Found {len(result['internal_links'])} internal links, "
+                f"{len(result['external_links'])} external links, {len(result['forms'])} forms, "
+                f"{len(result['scripts'])} scripts, {len(result['api_endpoints'])} API endpoints, "
+                f"{len(result['parameters'])} unique parameters."
+            ),
+            "evidence": f"Parameters: {result['parameters'][:20]}",
+            "recommendation": "Review all discovered forms and API endpoints for proper security controls.",
+        }
+    )
 
     return findings

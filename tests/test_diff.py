@@ -1,9 +1,11 @@
 """Tests for scan diff/comparison."""
 
 import asyncio
+
 import pytest
+
 from src.db.database import Database
-from src.scanner.diff import compare_scans, _fingerprint
+from src.scanner.diff import _fingerprint, compare_scans
 
 
 @pytest.fixture
@@ -44,6 +46,7 @@ def test_compare_scans(db):
         assert len(result["resolved_findings"]) == 1  # CSP resolved
         assert len(result["persistent_findings"]) == 1  # HSTS persists
         assert "improved" in result["summary"].lower()
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -51,4 +54,5 @@ def test_compare_nonexistent_scan(db):
     async def _test():
         result = await compare_scans(db, 999, 998)
         assert "error" in result
+
     asyncio.get_event_loop().run_until_complete(_test())

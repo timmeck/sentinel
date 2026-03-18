@@ -6,10 +6,12 @@ Generates actionable reports with severity ratings and fix recommendations.
 """
 
 import asyncio
+
 import click
-from src.db.database import Database
+
 from src.ai.llm import LLM
-from src.scanner.engine import ScanEngine, SCAN_PROFILES
+from src.db.database import Database
+from src.scanner.engine import SCAN_PROFILES, ScanEngine
 from src.utils.logger import get_logger
 
 log = get_logger("cli")
@@ -32,6 +34,7 @@ def cli():
 @cli.command()
 def status():
     """Show system status."""
+
     async def _run():
         db, llm, _ = await _services()
         stats = await db.get_stats()
@@ -44,6 +47,7 @@ def status():
         click.echo(f"  Critical/High: {stats['critical_high']}")
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -53,8 +57,9 @@ def status():
 @click.option("--name", default=None, help="Target name")
 def scan(url, scan_type, name):
     """Scan a target URL for security issues."""
+
     async def _run():
-        db, llm, engine = await _services()
+        db, _llm, engine = await _services()
         click.echo(f"\nScanning {url} ({scan_type})...\n")
         result = await engine.scan(url, scan_type=scan_type, target_name=name)
 
@@ -76,11 +81,12 @@ def scan(url, scan_type, name):
             if result.get("info", 0):
                 click.echo(f"   [INFO]     {result['info']}")
 
-            click.echo(f"\n--- Report ---\n")
+            click.echo("\n--- Report ---\n")
             click.echo(result.get("report", "No report generated."))
 
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -88,6 +94,7 @@ def scan(url, scan_type, name):
 @click.option("--limit", default=20, help="Number of scans to show")
 def scans(limit):
     """List recent scans."""
+
     async def _run():
         db, _, _ = await _services()
         scan_list = await db.list_scans(limit=limit)
@@ -100,9 +107,12 @@ def scans(limit):
         click.echo("-" * 80)
         for s in scan_list:
             score = f"{s['score']:.0f}" if s.get("score") is not None else "-"
-            click.echo(f"{s['id']:>4}  {score:>6}  {s['findings_count']:>8}  {s['status']:<10}  {s['scan_type']:<10}  {s.get('url', '?')}")
+            click.echo(
+                f"{s['id']:>4}  {score:>6}  {s['findings_count']:>8}  {s['status']:<10}  {s['scan_type']:<10}  {s.get('url', '?')}"
+            )
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -110,6 +120,7 @@ def scans(limit):
 @click.argument("scan_id", type=int)
 def show(scan_id):
     """Show scan details and findings."""
+
     async def _run():
         db, _, _ = await _services()
         scan = await db.get_scan(scan_id)
@@ -134,6 +145,7 @@ def show(scan_id):
             click.echo(f"\n--- Report ---\n{scan['report']}")
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -142,6 +154,7 @@ def show(scan_id):
 @click.option("--limit", default=10)
 def search(query, limit):
     """Search across all findings."""
+
     async def _run():
         db, _, _ = await _services()
         results = await db.search_findings(query, limit=limit)
@@ -153,12 +166,14 @@ def search(query, limit):
                 click.echo(f"   {f['description'][:150]}")
                 click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
 @cli.command()
 def targets():
     """List all scan targets."""
+
     async def _run():
         db, _, _ = await _services()
         target_list = await db.list_targets()
@@ -169,6 +184,7 @@ def targets():
                 click.echo(f"  [{t['id']}] {t['name']} ({t['url']}) - {t['scan_count']} scans")
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -177,9 +193,11 @@ def targets():
 @click.argument("new_id", type=int)
 def diff(old_id, new_id):
     """Compare two scans (regression tracking)."""
+
     async def _run():
         db, _, _ = await _services()
         from src.scanner.diff import compare_scans
+
         result = await compare_scans(db, old_id, new_id)
         if result.get("error"):
             click.echo(f"Error: {result['error']}")
@@ -196,6 +214,7 @@ def diff(old_id, new_id):
                 click.echo(f"    - [{f['severity']}] {f['title']}")
         click.echo()
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -205,9 +224,11 @@ def diff(old_id, new_id):
 @click.option("--output", "-o", default=None, help="Output file path")
 def export_cmd(scan_id, fmt, output):
     """Export scan report as JSON or HTML."""
+
     async def _run():
         db, _, _ = await _services()
-        from src.scanner.export import export_json, export_html
+        from src.scanner.export import export_html, export_json
+
         if fmt == "html":
             data = await export_html(db, scan_id)
         else:
@@ -220,6 +241,7 @@ def export_cmd(scan_id, fmt, output):
         else:
             click.echo(data)
         await db.close()
+
     asyncio.run(_run())
 
 
@@ -228,7 +250,9 @@ def export_cmd(scan_id, fmt, output):
 def serve(port):
     """Start the web dashboard."""
     import uvicorn
+
     from src.config import SENTINEL_PORT
+
     p = port or SENTINEL_PORT
     click.echo(f"\n[SENTINEL] Dashboard: http://localhost:{p}\n")
     uvicorn.run("src.web.api:app", host="0.0.0.0", port=p, reload=False)

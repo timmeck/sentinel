@@ -1,10 +1,11 @@
 """Tests for security check modules."""
 
-import asyncio
-import pytest
 from src.scanner.checks import (
-    SECURITY_HEADERS, COMMON_PORTS, SENSITIVE_PATHS, RISKY_PORTS,
+    COMMON_PORTS,
     DANGEROUS_HEADERS,
+    RISKY_PORTS,
+    SECURITY_HEADERS,
+    SENSITIVE_PATHS,
 )
 
 

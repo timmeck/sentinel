@@ -1,8 +1,6 @@
 """Tests for scan engine."""
 
-import asyncio
-import pytest
-from src.scanner.engine import ScanEngine, SCAN_PROFILES, SCAN_MODULES
+from src.scanner.engine import SCAN_MODULES, SCAN_PROFILES, ScanEngine
 
 
 def test_scan_profiles_valid():
@@ -21,7 +19,7 @@ def test_scan_modules_have_functions():
 
 def test_calculate_score():
     """Score calculation works correctly."""
-    from src.db.database import Database
+
     engine = ScanEngine.__new__(ScanEngine)
 
     # No findings = perfect score
@@ -45,8 +43,8 @@ def test_calculate_score():
     # Multiple findings
     findings = [
         {"severity": "critical"},  # -25
-        {"severity": "high"},      # -15
-        {"severity": "medium"},    # -5
+        {"severity": "high"},  # -15
+        {"severity": "medium"},  # -5
     ]
     assert engine._calculate_score(findings) == 55.0
 

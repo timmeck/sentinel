@@ -1,9 +1,11 @@
 """Tests for scan scheduler."""
 
 import asyncio
+
 import pytest
+
 from src.db.database import Database
-from src.scanner.scheduler import ScanScheduler, INTERVAL_MAP
+from src.scanner.scheduler import INTERVAL_MAP, ScanScheduler
 
 
 @pytest.fixture
@@ -30,6 +32,7 @@ def test_add_schedule(db):
 
         schedules = await sched.list_schedules()
         assert len(schedules) == 1
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -39,6 +42,7 @@ def test_add_schedule_invalid_interval(db):
         await sched.ensure_table()
         result = await sched.add_schedule("https://example.com", "99x")
         assert "error" in result
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -49,6 +53,7 @@ def test_delete_schedule(db):
         result = await sched.add_schedule("https://example.com", "1h")
         assert await sched.delete_schedule(result["id"])
         assert len(await sched.list_schedules()) == 0
+
     asyncio.get_event_loop().run_until_complete(_test())
 
 
@@ -58,7 +63,8 @@ def test_toggle_schedule(db):
         await sched.ensure_table()
         result = await sched.add_schedule("https://example.com", "1d")
         toggled = await sched.toggle_schedule(result["id"])
-        assert toggled["enabled"] == False
+        assert not toggled["enabled"]
         toggled = await sched.toggle_schedule(result["id"])
-        assert toggled["enabled"] == True
+        assert toggled["enabled"]
+
     asyncio.get_event_loop().run_until_complete(_test())

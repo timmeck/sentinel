@@ -3,21 +3,23 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import HTMLResponse, StreamingResponse
-from starlette.requests import Request
-from jinja2 import Template
 from pathlib import Path
-from src.db.database import Database
+
+from fastapi import BackgroundTasks, FastAPI
+from fastapi.responses import HTMLResponse, StreamingResponse
+from jinja2 import Template
+from starlette.requests import Request
+
 from src.ai.llm import LLM
-from src.scanner.engine import ScanEngine, SCAN_PROFILES
-from src.scanner.scheduler import ScanScheduler
-from src.scanner.diff import compare_scans
-from src.scanner.export import export_json, export_html
-from src.web.auth import AuthMiddleware
+from src.config import NEXUS_URL, SENTINEL_PORT
+from src.db.database import Database
 from src.nexus_sdk import NexusAdapter
-from src.config import SENTINEL_PORT, NEXUS_URL
+from src.scanner.diff import compare_scans
+from src.scanner.engine import SCAN_PROFILES, ScanEngine
+from src.scanner.export import export_html, export_json
+from src.scanner.scheduler import ScanScheduler
 from src.utils.logger import get_logger
+from src.web.auth import AuthMiddleware
 
 log = get_logger("api")
 
@@ -36,6 +38,7 @@ async def broadcast(event_type: str, data: dict):
         except Exception:
             sse_clients.remove(q)
 
+
 engine.on_event = broadcast
 
 
@@ -48,6 +51,7 @@ async def lifespan(app):
     await scheduler.stop()
     await db.close()
 
+
 app = FastAPI(title="Sentinel", description="AI Security Scanner", lifespan=lifespan)
 app.add_middleware(AuthMiddleware)
 
@@ -59,11 +63,22 @@ nexus = NexusAdapter(
     endpoint=f"http://localhost:{SENTINEL_PORT}",
     description="AI Security Scanner — vulnerability detection and threat analysis",
     capabilities=[
-        {"name": "security_analysis", "description": "Run security scan on a URL", "languages": ["en"], "price_per_request": 0.02},
-        {"name": "threat_detection", "description": "Quick threat detection check", "languages": ["en"], "price_per_request": 0.02},
+        {
+            "name": "security_analysis",
+            "description": "Run security scan on a URL",
+            "languages": ["en"],
+            "price_per_request": 0.02,
+        },
+        {
+            "name": "threat_detection",
+            "description": "Quick threat detection check",
+            "languages": ["en"],
+            "price_per_request": 0.02,
+        },
     ],
     tags=["security", "scanner", "vulnerability", "threat"],
 )
+
 
 @nexus.handle("security_analysis")
 async def handle_security_analysis(query: str, params: dict) -> dict:
@@ -71,6 +86,7 @@ async def handle_security_analysis(query: str, params: dict) -> dict:
     result = await engine.scan(query, scan_type=scan_type, target_name="nexus-scan")
     answer = json.dumps(result, default=str) if isinstance(result, dict) else str(result)
     return {"result": answer, "confidence": 0.85, "cost": 0.02}
+
 
 @nexus.handle("threat_detection")
 async def handle_threat_detection(query: str, params: dict) -> dict:
@@ -81,6 +97,7 @@ async def handle_threat_detection(query: str, params: dict) -> dict:
 
 # ── Status ──────────────────────────────────────────────────────────
 
+
 @app.get("/api/status")
 async def status():
     stats = await db.get_stats()
@@ -88,6 +105,7 @@ async def status():
 
 
 # ── Targets ─────────────────────────────────────────────────────────
+
 
 @app.get("/api/targets")
 async def list_targets():
@@ -101,6 +119,7 @@ async def delete_target(target_id: int):
 
 
 # ── Scans ───────────────────────────────────────────────────────────
+
 
 @app.post("/api/scan")
 async def start_scan(request: Request, background_tasks: BackgroundTasks):
@@ -138,7 +157,7 @@ async def scan_sync(request: Request):
 
 
 @app.get("/api/scans")
-async def list_scans(target_id: int = None):
+async def list_scans(target_id: int | None = None):
     return await db.list_scans(target_id=target_id)
 
 
@@ -159,6 +178,7 @@ async def delete_scan(scan_id: int):
 
 # ── Findings ────────────────────────────────────────────────────────
 
+
 @app.get("/api/findings/search")
 async def search_findings(q: str = "", limit: int = 20):
     if not q:
@@ -168,12 +188,14 @@ async def search_findings(q: str = "", limit: int = 20):
 
 # ── Activity ────────────────────────────────────────────────────────
 
+
 @app.get("/api/activity")
-async def get_activity(scan_id: int = None, limit: int = 50):
+async def get_activity(scan_id: int | None = None, limit: int = 50):
     return await db.get_activity(scan_id=scan_id, limit=limit)
 
 
 # ── SSE ─────────────────────────────────────────────────────────────
+
 
 @app.get("/api/events/stream")
 async def event_stream():
@@ -186,7 +208,7 @@ async def event_stream():
             while True:
                 msg = await asyncio.wait_for(q.get(), timeout=30)
                 yield msg
-        except asyncio.TimeoutError:
+        except TimeoutError:
             yield "event: ping\ndata: {}\n\n"
         except Exception:
             pass
@@ -199,12 +221,14 @@ async def event_stream():
 
 # ── Scan Profiles ───────────────────────────────────────────────────
 
+
 @app.get("/api/profiles")
 async def get_profiles():
     return {name: checks for name, checks in SCAN_PROFILES.items()}
 
 
 # ── Schedules ───────────────────────────────────────────────────────
+
 
 @app.get("/api/schedules")
 async def list_schedules():
@@ -235,12 +259,14 @@ async def toggle_schedule(schedule_id: int):
 
 # ── Diff/Compare ────────────────────────────────────────────────────
 
+
 @app.get("/api/diff/{old_id}/{new_id}")
 async def diff_scans(old_id: int, new_id: int):
     return await compare_scans(db, old_id, new_id)
 
 
 # ── Export ──────────────────────────────────────────────────────────
+
 
 @app.get("/api/export/{scan_id}/json")
 async def export_scan_json(scan_id: int):
@@ -259,6 +285,7 @@ async def export_scan_html(scan_id: int):
 
 
 # ── Dashboard ───────────────────────────────────────────────────────
+
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():

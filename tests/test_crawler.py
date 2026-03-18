@@ -12,13 +12,13 @@ def test_link_parser_extracts_links():
 
 def test_link_parser_extracts_forms():
     parser = LinkParser("https://example.com")
-    parser.feed('''
+    parser.feed("""
         <form action="/login" method="POST">
             <input type="text" name="username">
             <input type="password" name="password">
             <input type="hidden" name="csrf_token" value="abc123">
         </form>
-    ''')
+    """)
     assert len(parser.forms) == 1
     form = parser.forms[0]
     assert form["action"] == "https://example.com/login"

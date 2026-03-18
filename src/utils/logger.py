@@ -1,6 +1,7 @@
 """Logging setup for Sentinel."""
 
 import logging
+
 from src.config import LOG_LEVEL
 
 
