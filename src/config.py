@@ -22,6 +22,9 @@ DEFAULT_MODEL = os.getenv("SENTINEL_MODEL", "claude-sonnet-4-6" if LLM_PROVIDER 
 SENTINEL_PORT = int(os.getenv("SENTINEL_PORT", "8500"))
 SENTINEL_API_KEY = os.getenv("SENTINEL_API_KEY", "")
 
+# Nexus Protocol
+NEXUS_URL = os.getenv("NEXUS_URL", "http://localhost:9500")
+
 # Scanner defaults
 SCAN_TIMEOUT = int(os.getenv("SCAN_TIMEOUT", "30"))
 MAX_CONCURRENT_CHECKS = int(os.getenv("MAX_CONCURRENT_CHECKS", "10"))
