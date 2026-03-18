@@ -132,7 +132,7 @@ class ScanEngine:
                             cvss_score=finding.get("cvss_score"),
                         )
                         all_findings.append(finding)
-                except Exception as e:
+                except (OSError, TimeoutError, RuntimeError, ValueError) as e:
                     log.error(f"Check {check_name} failed: {e}")
                     await self.db.log_event("check_failed", f"{module_name}: {e}", scan_id=sid)
 
@@ -164,7 +164,7 @@ class ScanEngine:
                 "report": report,
             }
 
-        except Exception as e:
+        except (OSError, TimeoutError, RuntimeError, ValueError) as e:
             error = f"{type(e).__name__}: {e}"
             await self.db.update_scan(sid, status="failed")
             await self.db.log_event("scan_failed", error, scan_id=sid)

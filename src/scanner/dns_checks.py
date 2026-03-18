@@ -1,6 +1,7 @@
 """DNS & Subdomain Analysis -- DNS records, zone info, subdomain discovery."""
 
 import asyncio
+import json
 import socket
 from urllib.parse import urlparse
 
@@ -131,7 +132,7 @@ async def check_dns(url: str) -> list[dict]:
                         "cwe_id": "CWE-200",
                     }
                 )
-    except Exception as e:
+    except (OSError, socket.gaierror) as e:
         findings.append(
             {
                 "severity": "medium",
@@ -242,9 +243,9 @@ async def _check_dns_txt(domain: str, findings: list):
                                     "recommendation": "Upgrade DMARC policy to 'p=quarantine' or 'p=reject'.",
                                 }
                             )
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError, json.JSONDecodeError, ValueError, KeyError):
                     pass
-    except Exception:
+    except (OSError, socket.gaierror):
         pass
 
 

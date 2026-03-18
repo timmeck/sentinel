@@ -111,7 +111,7 @@ class ScanScheduler:
                     log.info(f"Scheduled scan: {s['target_url']} ({s['scan_type']})")
                     try:
                         await self.engine.scan(s["target_url"], scan_type=s["scan_type"])
-                    except Exception as e:
+                    except (OSError, TimeoutError, RuntimeError, ValueError) as e:
                         log.error(f"Scheduled scan failed: {e}")
 
                     # Update schedule
@@ -122,7 +122,7 @@ class ScanScheduler:
                     )
                     await self.db.conn.commit()
 
-            except Exception as e:
+            except (OSError, TimeoutError, RuntimeError, ValueError) as e:
                 log.error(f"Scheduler error: {e}")
 
             await asyncio.sleep(60)  # Check every minute

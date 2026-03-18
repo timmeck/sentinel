@@ -70,7 +70,7 @@ async def check_api(url: str) -> list[dict]:
                         len(resp.content),
                         resp.text[:2000],
                     )
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     return path, None, "", 0, ""
 
         tasks = [_probe(p) for p in API_PATHS]
@@ -167,7 +167,7 @@ async def check_api(url: str) -> list[dict]:
                             "cwe_id": "CWE-200",
                         }
                     )
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, OSError):
                 continue
 
         # Summary

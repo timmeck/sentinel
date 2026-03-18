@@ -35,7 +35,7 @@ async def broadcast(event_type: str, data: dict):
     for q in sse_clients[:]:
         try:
             q.put_nowait(msg)
-        except Exception:
+        except (asyncio.QueueFull, Exception):
             sse_clients.remove(q)
 
 
@@ -210,7 +210,7 @@ async def event_stream():
                 yield msg
         except TimeoutError:
             yield "event: ping\ndata: {}\n\n"
-        except Exception:
+        except (asyncio.CancelledError, OSError, RuntimeError):
             pass
         finally:
             if q in sse_clients:

@@ -165,7 +165,7 @@ async def crawl(url: str, max_pages: int = 20, max_depth: int = 3) -> dict:
                     if pattern.startswith("/") or pattern.startswith("http"):
                         api_endpoints.add(urljoin(url, pattern))
 
-            except Exception as e:
+            except (httpx.HTTPError, TimeoutError, OSError) as e:
                 log.debug(f"Crawl error on {current_url}: {e}")
 
     return {

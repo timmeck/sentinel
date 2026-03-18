@@ -104,7 +104,7 @@ async def check_sqli(url: str) -> list[dict]:
         # Get baseline response
         try:
             await client.get(url)
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, OSError):
             return findings
 
         for param_name in params:
@@ -135,7 +135,7 @@ async def check_sqli(url: str) -> list[dict]:
                                 }
                             )
                             break  # One finding per param is enough
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     continue
 
     return findings
@@ -176,7 +176,7 @@ async def check_xss(url: str) -> list[dict]:
                             }
                         )
                         break  # One per param
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     continue
 
     return findings
@@ -210,7 +210,7 @@ async def check_open_redirect(url: str) -> list[dict]:
                                 }
                             )
                             break  # One per param
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     continue
 
     return findings
@@ -258,7 +258,7 @@ async def check_directory_traversal(url: str) -> list[dict]:
                                 }
                             )
                             break
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     continue
 
     return findings
@@ -305,7 +305,7 @@ async def check_rate_limiting(url: str) -> list[dict]:
                                 "cvss_score": 5.3,
                             }
                         )
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, OSError):
                 continue
 
     return findings
@@ -360,7 +360,7 @@ async def check_cors_deep(url: str) -> list[dict]:
                             "cwe_id": "CWE-942",
                         }
                     )
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, OSError):
                 continue
 
     return findings

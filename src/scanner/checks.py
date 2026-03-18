@@ -163,7 +163,7 @@ async def check_headers(url: str) -> list[dict]:
                         }
                     )
 
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError, OSError) as e:
         log.warning(f"Header check failed for {url}: {e}")
     return findings
 
@@ -269,7 +269,7 @@ async def check_ssl(url: str) -> list[dict]:
                                 "cwe_id": "CWE-295",
                             }
                         )
-                except Exception:
+                except (ValueError, TypeError, OverflowError):
                     pass
 
         if not findings:
@@ -297,7 +297,7 @@ async def check_ssl(url: str) -> list[dict]:
                 "cvss_score": 9.1,
             }
         )
-    except Exception as e:
+    except (ssl.SSLError, OSError, socket.gaierror) as e:
         findings.append(
             {
                 "severity": "info",
@@ -355,7 +355,7 @@ async def check_ports(url: str) -> list[dict]:
             writer.close()
             await writer.wait_closed()
             return True
-        except Exception:
+        except (OSError, asyncio.TimeoutError):
             return False
 
     # Scan common ports concurrently
@@ -443,7 +443,7 @@ async def check_cookies(url: str) -> list[dict]:
                         }
                     )
 
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError, OSError) as e:
         log.warning(f"Cookie check failed for {url}: {e}")
     return findings
 
@@ -497,7 +497,7 @@ async def check_paths(url: str) -> list[dict]:
                 try:
                     resp = await client.get(f"{base}{path}")
                     return path, resp.status_code, len(resp.content)
-                except Exception:
+                except (httpx.HTTPError, TimeoutError, OSError):
                     return path, None, 0
 
         tasks = [_probe(p) for p in SENSITIVE_PATHS]
@@ -596,7 +596,7 @@ async def check_technology(url: str) -> list[dict]:
                     }
                 )
 
-    except Exception as e:
+    except (httpx.HTTPError, TimeoutError, OSError) as e:
         log.warning(f"Technology check failed: {e}")
     return findings
 
@@ -637,6 +637,6 @@ async def check_https_redirect(url: str) -> list[dict]:
                             "cwe_id": "CWE-319",
                         }
                     )
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, OSError):
             pass
     return findings
