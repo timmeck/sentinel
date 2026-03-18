@@ -159,6 +159,17 @@ SENTINEL_PORT=8500
 SCAN_TIMEOUT=30
 ```
 
+## Nexus Protocol
+
+Sentinel integrates with [Nexus](https://github.com/timmeck/nexus) via the NexusAdapter SDK.
+
+| Capability | Description | Price |
+|-----------|-------------|-------|
+| `security_analysis` | Run security scan on a URL | 0.02 |
+| `threat_detection` | Quick threat detection check | 0.02 |
+
+**Features**: HMAC signature verification, automatic heartbeats (30s), auto-registration with Nexus on startup.
+
 ## Testing
 
 ```bash
