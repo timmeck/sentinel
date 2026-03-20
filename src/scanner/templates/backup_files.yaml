@@ -1,0 +1,22 @@
+id: exposed-backup-files
+name: Exposed Backup Files
+severity: critical
+cwe: CWE-530
+description: "Backup files are publicly accessible and may contain full database dumps, source code, or credentials."
+recommendation: "Remove backup files from the web root. Store backups outside the document root and restrict access."
+request:
+  method: GET
+  paths:
+    - /backup.sql
+    - /dump.sql
+    - /database.sql
+    - /backup.zip
+    - /backup.tar.gz
+    - /db.sql
+    - /site.bak
+    - /index.php.bak
+matchers:
+  - type: status
+    values: [200]
+  - type: min_size
+    value: 100

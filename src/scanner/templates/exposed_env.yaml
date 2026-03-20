@@ -1,0 +1,15 @@
+id: exposed-env-file
+name: Exposed .env File
+severity: high
+cwe: CWE-200
+description: "The .env file is publicly accessible and may contain secrets like database passwords and API keys."
+recommendation: "Block access to .env files via web server configuration. Add '/.env' to deny rules."
+request:
+  method: GET
+  path: /.env
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["DB_PASSWORD", "API_KEY", "SECRET", "DATABASE_URL", "AWS_SECRET"]
+    condition: any

@@ -1,0 +1,15 @@
+id: exposed-phpinfo
+name: Exposed phpinfo()
+severity: high
+cwe: CWE-200
+description: "A phpinfo() page is publicly accessible, leaking server configuration, PHP version, loaded modules, and environment variables."
+recommendation: "Remove phpinfo.php from production servers. Restrict access to diagnostic pages."
+request:
+  method: GET
+  path: /phpinfo.php
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["phpinfo()", "PHP Version", "PHP License", "Configuration File"]
+    condition: any

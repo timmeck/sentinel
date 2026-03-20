@@ -1,0 +1,17 @@
+id: exposed-server-status
+name: Exposed Server Status Page
+severity: medium
+cwe: CWE-200
+description: "The server-status or server-info page is publicly accessible, leaking active connections, request details, and server configuration."
+recommendation: "Restrict access to server-status and server-info to localhost or trusted IPs only."
+request:
+  method: GET
+  paths:
+    - /server-status
+    - /server-info
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["Apache Server Status", "Server Version", "Current Time", "Total accesses", "ServerRoot"]
+    condition: any

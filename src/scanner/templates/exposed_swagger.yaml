@@ -1,0 +1,15 @@
+id: exposed-swagger
+name: Exposed Swagger/OpenAPI Spec
+severity: medium
+cwe: CWE-200
+description: "The Swagger/OpenAPI specification is publicly accessible, allowing attackers to map all API endpoints and parameters."
+recommendation: "Restrict API documentation to authenticated users or internal networks only."
+request:
+  method: GET
+  path: /swagger.json
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["swagger", "openapi", "paths", "\"info\""]
+    condition: any

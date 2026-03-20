@@ -1,0 +1,15 @@
+id: exposed-debug-endpoint
+name: Exposed Debug Endpoint
+severity: high
+cwe: CWE-489
+description: "A debug endpoint is publicly accessible, potentially exposing application internals, stack traces, or configuration."
+recommendation: "Disable debug mode in production. Remove or restrict access to debug endpoints."
+request:
+  method: GET
+  path: /debug
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["debug", "traceback", "stack trace", "exception", "settings"]
+    condition: any

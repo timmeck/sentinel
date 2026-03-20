@@ -1,0 +1,20 @@
+id: exposed-actuator
+name: Exposed Spring Boot Actuator
+severity: high
+cwe: CWE-200
+description: "Spring Boot Actuator endpoints are publicly accessible, potentially exposing environment variables, health details, and configuration."
+recommendation: "Restrict actuator endpoints to authenticated admin users. Disable sensitive endpoints in production."
+request:
+  method: GET
+  paths:
+    - /actuator
+    - /actuator/env
+    - /actuator/health
+    - /actuator/configprops
+    - /actuator/mappings
+matchers:
+  - type: status
+    values: [200]
+  - type: body_contains
+    values: ["actuator", "\"status\"", "\"propertySources\"", "\"contexts\""]
+    condition: any

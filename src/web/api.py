@@ -265,6 +265,40 @@ async def diff_scans(old_id: int, new_id: int):
     return await compare_scans(db, old_id, new_id)
 
 
+@app.get("/api/scans/{id1}/diff/{id2}")
+async def diff_scans_alt(id1: int, id2: int):
+    """Compare two scan results: new findings, resolved findings, changed severity."""
+    result = await compare_scans(db, id1, id2)
+    if "error" in result:
+        return result
+    # Restructure into added/removed/changed format
+    changed = []
+    for finding in result.get("persistent_findings", []):
+        fp = f"{finding.get('category', '')}::{finding.get('title', '')}"
+        # Check if severity changed between old and new
+        old_findings_map = {
+            f"{f.get('category', '')}::{f.get('title', '')}": f
+            for f in (await db.get_findings(id1))
+        }
+        old_f = old_findings_map.get(fp)
+        if old_f and old_f.get("severity") != finding.get("severity"):
+            changed.append({
+                "title": finding.get("title"),
+                "category": finding.get("category"),
+                "old_severity": old_f.get("severity"),
+                "new_severity": finding.get("severity"),
+            })
+    return {
+        "scan_old": result["old_scan"],
+        "scan_new": result["new_scan"],
+        "score_change": result["score_change"],
+        "added": result["new_findings"],
+        "removed": result["resolved_findings"],
+        "changed": changed,
+        "summary": result["summary"],
+    }
+
+
 # ── Export ──────────────────────────────────────────────────────────
 
 

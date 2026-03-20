@@ -10,6 +10,7 @@ Pipeline:
 from src.ai.llm import LLM
 from src.db.database import Database
 from src.scanner.api_checks import check_api
+from src.scanner.api_fuzzer import fuzz_api
 from src.scanner.checks import (
     check_cookies,
     check_headers,
@@ -21,6 +22,7 @@ from src.scanner.checks import (
 )
 from src.scanner.crawler import check_crawl
 from src.scanner.dns_checks import check_dns
+from src.scanner.template_loader import run_template_checks
 from src.scanner.waf import check_waf
 from src.scanner.vulns import (
     check_cors_deep,
@@ -53,11 +55,13 @@ SCAN_MODULES = {
     "dns": ("DNS & Subdomain Analysis", check_dns),
     "api": ("API Security Check", check_api),
     "waf": ("WAF Detection", check_waf),
+    "templates": ("YAML Template Checks", run_template_checks),
+    "api_fuzz": ("API Fuzzing", fuzz_api),
 }
 
 SCAN_PROFILES = {
     "quick": ["headers", "ssl", "https_redirect", "technology"],
-    "standard": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology", "cors"],
+    "standard": ["headers", "ssl", "https_redirect", "cookies", "paths", "technology", "cors", "templates"],
     "full": [
         "headers",
         "ssl",
@@ -76,13 +80,15 @@ SCAN_PROFILES = {
         "xss",
         "open_redirect",
         "traversal",
+        "templates",
+        "api_fuzz",
     ],
     "headers": ["headers"],
     "ssl": ["ssl", "https_redirect"],
     "ports": ["ports"],
-    "recon": ["technology", "paths", "ports", "dns", "crawler", "waf"],
+    "recon": ["technology", "paths", "ports", "dns", "crawler", "waf", "templates"],
     "vulns": ["sqli", "xss", "open_redirect", "traversal", "cors"],
-    "api": ["api", "cors", "rate_limit"],
+    "api": ["api", "cors", "rate_limit", "api_fuzz"],
 }
 
 
