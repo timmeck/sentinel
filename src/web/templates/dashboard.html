@@ -819,6 +819,54 @@
             .scans-table tbody tr { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px; }
             .scans-table tbody td { padding: 0; border: none; }
         }
+
+        /* ═══ Professional Upgrade: Sentinel (#FF5252) ═══ */
+        :root {
+            --accent: #FF5252;
+            --critical: #FF5252;
+        }
+
+        /* Better typography */
+        body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+        /* Improved cards with shadows */
+        .scan-panel, .scans-section, .finding-card {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .finding-card:hover { box-shadow: 0 4px 16px rgba(255, 82, 82, 0.06); }
+
+        /* Card fade-in animation */
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .scan-panel { animation: cardFadeIn 0.4s ease both; animation-delay: 0.05s; }
+        .scans-section { animation: cardFadeIn 0.4s ease both; animation-delay: 0.15s; }
+
+        /* Better table styling */
+        .scans-table tbody tr:nth-child(even) td { background: rgba(255, 82, 82, 0.015); }
+        .scans-table tbody tr:hover td { background: rgba(255, 82, 82, 0.04); }
+        .scans-table thead th { position: sticky; top: 0; background: var(--bg-card); z-index: 5; }
+
+        /* Status indicators */
+        .badge-running { box-shadow: 0 0 8px rgba(59, 130, 246, 0.2); }
+        .badge-completed { box-shadow: 0 0 8px rgba(34, 197, 94, 0.2); }
+        .badge-failed { box-shadow: 0 0 8px rgba(239, 68, 68, 0.2); }
+
+        /* Better buttons */
+        .scan-btn { border-radius: 6px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(255, 82, 82, 0.2); }
+        .scan-btn:hover { box-shadow: 0 4px 16px rgba(255, 82, 82, 0.3); transform: translateY(-1px); }
+
+        /* Detail overlay improvements */
+        .detail-overlay { box-shadow: -4px 0 24px rgba(0,0,0,0.4); }
+
+        /* Logo accent */
+        .logo { color: #FF5252; }
+
+        /* Input focus */
+        .scan-input:focus, .scan-select:focus { box-shadow: 0 0 0 3px rgba(255, 82, 82, 0.1); }
     </style>
 </head>
 <body>
