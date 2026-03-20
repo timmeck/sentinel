@@ -21,6 +21,7 @@ from src.scanner.checks import (
 )
 from src.scanner.crawler import check_crawl
 from src.scanner.dns_checks import check_dns
+from src.scanner.waf import check_waf
 from src.scanner.vulns import (
     check_cors_deep,
     check_directory_traversal,
@@ -51,6 +52,7 @@ SCAN_MODULES = {
     "cors": ("CORS Deep Check", check_cors_deep),
     "dns": ("DNS & Subdomain Analysis", check_dns),
     "api": ("API Security Check", check_api),
+    "waf": ("WAF Detection", check_waf),
 }
 
 SCAN_PROFILES = {
@@ -67,6 +69,7 @@ SCAN_PROFILES = {
         "cors",
         "dns",
         "api",
+        "waf",
         "rate_limit",
         "ports",
         "sqli",
@@ -77,7 +80,7 @@ SCAN_PROFILES = {
     "headers": ["headers"],
     "ssl": ["ssl", "https_redirect"],
     "ports": ["ports"],
-    "recon": ["technology", "paths", "ports", "dns", "crawler"],
+    "recon": ["technology", "paths", "ports", "dns", "crawler", "waf"],
     "vulns": ["sqli", "xss", "open_redirect", "traversal", "cors"],
     "api": ["api", "cors", "rate_limit"],
 }

@@ -18,6 +18,71 @@ from src.utils.logger import get_logger
 
 log = get_logger("crawler")
 
+# ── Secret Detection Patterns ─────────────────────────────────────
+SECRET_PATTERNS = {
+    "aws_key": r"AKIA[0-9A-Z]{16}",
+    "github_token": r"gh[ps]_[A-Za-z0-9_]{36,}",
+    "stripe_key": r"sk_live_[A-Za-z0-9]{24,}",
+    "jwt_token": r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
+    "private_key": r"-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----",
+    "slack_token": r"xox[baprs]-[A-Za-z0-9-]+",
+    "google_api": r"AIza[0-9A-Za-z_-]{35}",
+    "generic_api_key": r"(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['\"][A-Za-z0-9_-]{20,}['\"]",
+}
+
+SECRET_CWE_MAP = {
+    "aws_key": "CWE-798",
+    "github_token": "CWE-798",
+    "stripe_key": "CWE-798",
+    "jwt_token": "CWE-200",
+    "private_key": "CWE-321",
+    "slack_token": "CWE-798",
+    "google_api": "CWE-798",
+    "generic_api_key": "CWE-798",
+}
+
+SECRET_DESCRIPTIONS = {
+    "aws_key": "AWS Access Key ID exposed in page content",
+    "github_token": "GitHub personal access token exposed in page content",
+    "stripe_key": "Stripe live secret key exposed in page content",
+    "jwt_token": "JWT token exposed in page content",
+    "private_key": "Private cryptographic key exposed in page content",
+    "slack_token": "Slack API token exposed in page content",
+    "google_api": "Google API key exposed in page content",
+    "generic_api_key": "API key or secret key exposed in page content",
+}
+
+
+def scan_secrets(content: str, source_url: str) -> list[dict]:
+    """Scan text content for leaked secrets. Returns list of findings."""
+    findings = []
+    seen = set()
+
+    for secret_type, pattern in SECRET_PATTERNS.items():
+        for match in re.finditer(pattern, content):
+            matched_text = match.group(0)
+            # Deduplicate by type + redacted value
+            redacted = matched_text[:8] + "..." + matched_text[-4:] if len(matched_text) > 16 else matched_text[:8] + "..."
+            dedup_key = (secret_type, redacted)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            findings.append(
+                {
+                    "severity": "high",
+                    "category": "secrets",
+                    "title": f"Leaked {secret_type.replace('_', ' ').title()}: {redacted}",
+                    "description": SECRET_DESCRIPTIONS.get(secret_type, f"Secret of type '{secret_type}' found in page content."),
+                    "evidence": f"Found on {source_url}: {redacted}",
+                    "recommendation": "Immediately rotate the exposed credential. Remove secrets from client-facing code. Use environment variables or a secrets manager.",
+                    "cwe_id": SECRET_CWE_MAP.get(secret_type, "CWE-798"),
+                    "cvss_score": 8.5,
+                }
+            )
+
+    return findings
+
 
 class LinkParser(HTMLParser):
     """Extract links, forms, scripts, and inputs from HTML."""
@@ -99,6 +164,7 @@ async def crawl(url: str, max_pages: int = 20, max_depth: int = 3) -> dict:
     all_scripts = set()
     api_endpoints = set()
     parameters = set()
+    secret_findings = []
 
     async with httpx.AsyncClient(timeout=SCAN_TIMEOUT, follow_redirects=True, verify=False) as client:
         while to_visit and len(visited) < max_pages:
@@ -165,6 +231,10 @@ async def crawl(url: str, max_pages: int = 20, max_depth: int = 3) -> dict:
                     if pattern.startswith("/") or pattern.startswith("http"):
                         api_endpoints.add(urljoin(url, pattern))
 
+                # Scan page content for leaked secrets
+                page_secrets = scan_secrets(resp.text, current_url)
+                secret_findings.extend(page_secrets)
+
             except (httpx.HTTPError, TimeoutError, OSError) as e:
                 log.debug(f"Crawl error on {current_url}: {e}")
 
@@ -176,6 +246,7 @@ async def crawl(url: str, max_pages: int = 20, max_depth: int = 3) -> dict:
         "scripts": sorted(all_scripts),
         "api_endpoints": sorted(api_endpoints),
         "parameters": sorted(parameters),
+        "secrets": secret_findings,
     }
 
 
@@ -249,6 +320,10 @@ async def check_crawl(url: str) -> list[dict]:
                 "recommendation": "Use rel='noopener noreferrer' on external links and set Referrer-Policy header.",
             }
         )
+
+    # Report leaked secrets
+    for secret_finding in result.get("secrets", []):
+        findings.append(secret_finding)
 
     # Summary finding
     findings.append(

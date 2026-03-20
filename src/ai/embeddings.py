@@ -58,7 +58,34 @@ async def embed_text(text: str) -> list[float] | None:
 
 
 async def embed_batch(texts: list[str]) -> list[list[float] | None]:
-    """Embed multiple texts. Returns list of vectors (None for failures)."""
+    """Embed multiple texts via batch Ollama API. Returns list of vectors (None for failures)."""
+    if not texts:
+        return []
+
+    try:
+        truncated = [t[:8000] for t in texts]
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/embed",
+                json={"model": EMBEDDING_MODEL, "input": truncated},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            embeddings = data.get("embeddings", [])
+            if len(embeddings) == len(texts):
+                return [v if v and len(v) > 0 else None for v in embeddings]
+            # Partial result — pad with None
+            result = [v if v and len(v) > 0 else None for v in embeddings]
+            result.extend([None] * (len(texts) - len(result)))
+            return result
+    except (TimeoutError, httpx.ConnectError, httpx.ReadError) as e:
+        log.debug(f"Batch embedding network error: {type(e).__name__}: {e}")
+    except httpx.HTTPStatusError as e:
+        log.warning(f"Batch embedding HTTP {e.response.status_code}, falling back to sequential")
+    except Exception as e:
+        log.warning(f"Batch embedding unexpected error: {type(e).__name__}: {e}")
+
+    # Fallback to sequential if batch fails
     results = []
     for text in texts:
         results.append(await embed_text(text))
